@@ -48,11 +48,7 @@ class MockSite:
     def _save_doc(self, query, timestamp):
         key = query['key']
 
-        if key in self.docs:
-            rev = self.docs[key]['revision'] + 1
-        else:
-            rev = 1
-
+        rev = self.docs[key]['revision'] + 1 if key in self.docs else 1
         doc = dict(query)
         doc['revision'] = rev
         doc['latest_revision'] = rev
@@ -145,9 +141,7 @@ class MockSite:
         if isinstance(value, list):
             return [self._process(v) for v in value]
         elif isinstance(value, dict):
-            d = {}
-            for k, v in value.items():
-                d[k] = self._process(v)
+            d = {k: self._process(v) for k, v in value.items()}
             return client.create_thing(self, d.get('key'), d)
         elif isinstance(value, common.Reference):
             return client.create_thing(self, str(value), None)
@@ -155,10 +149,7 @@ class MockSite:
             return value
 
     def _process_dict(self, data):
-        d = {}
-        for k, v in data.items():
-            d[k] = self._process(v)
-        return d
+        return {k: self._process(v) for k, v in data.items()}
 
     def get_many(self, keys):
         return [self.get(k) for k in keys if k in self.docs]
@@ -191,7 +182,7 @@ class MockSite:
             "!": lambda i, value: i.value != value,
             "=": lambda i, value: i.value == value,
         }
-        pattern = ".*([%s])$" % "".join(operations)
+        pattern = f'.*([{"".join(operations)}])$'
         rx = web.re_compile(pattern)
 
         if m := rx.match(name):
@@ -202,11 +193,7 @@ class MockSite:
 
         f = operations[op]
 
-        if name == 'isbn_':
-            names = ['isbn_10', 'isbn_13']
-        else:
-            names = [name]
-
+        names = ['isbn_10', 'isbn_13'] if name == 'isbn_' else [name]
         if isinstance(value, list):  # Match any of the elements in value if it's a list
             for n in names:
                 for i in index:
@@ -292,7 +279,7 @@ class MockSite:
     def login(self, username, password):
         status = self.account_manager.login(username, password)
         if status == "ok":
-            self.account_manager.set_auth_token("/people/" + username)
+            self.account_manager.set_auth_token(f"/people/{username}")
         else:
             d = {"code": status}
             raise client.ClientException(
@@ -301,12 +288,11 @@ class MockSite:
 
     def find_account(self, username=None, email=None):
         if username is not None:
-            return self.store.get("account/" + username)
-        else:
-            try:
-                return self.store.values(type="account", name="email", value=email)[0]
-            except IndexError:
-                return None
+            return self.store.get(f"account/{username}")
+        try:
+            return self.store.values(type="account", name="email", value=email)[0]
+        except IndexError:
+            return None
 
     def get_user(self):
         if auth_token := web.ctx.get("infobase_auth_token", ""):
@@ -316,7 +302,9 @@ class MockSite:
                 return
 
             a = self.account_manager
-            if a._check_salted_hash(a.secret_key, user_key + "," + login_time, digest):
+            if a._check_salted_hash(
+                a.secret_key, f"{user_key},{login_time}", digest
+            ):
                 return self.get(user_key)
 
 

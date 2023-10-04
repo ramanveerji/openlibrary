@@ -22,13 +22,12 @@ def luqum_remove_child(child: Item, parents: list[Item]):
         # We cannot remove the element if it is the root of the tree
         raise EmptyTreeError()
     elif isinstance(parent, (BaseOperation, Group, Unary)):
-        new_children = tuple(c for c in parent.children if c != child)
-        if not new_children:
+        if new_children := tuple(c for c in parent.children if c != child):
+            parent.children = new_children
+        else:
             # If we have deleted all the children, we need to delete the parent
             # as well. And potentially recurse up the tree.
             luqum_remove_child(parent, parents[:-1])
-        else:
-            parent.children = new_children
     else:
         raise ValueError("Not supported for generic class Item")
 

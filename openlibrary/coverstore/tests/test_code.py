@@ -29,8 +29,8 @@ def test_parse_tarindex():
     f = StringIO("")
 
     offsets, sizes = code.parse_tarindex(f)
-    assert list(offsets) == [0 for i in range(10000)]
-    assert list(sizes) == [0 for i in range(10000)]
+    assert list(offsets) == [0 for _ in range(10000)]
+    assert list(sizes) == [0 for _ in range(10000)]
 
     f = StringIO("0000010000.jpg\t0\t10\n0000010002.jpg\t512\t20\n")
 

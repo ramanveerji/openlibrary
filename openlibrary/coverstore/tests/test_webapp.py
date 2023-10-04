@@ -41,10 +41,10 @@ class Mock:
         self.default = None
 
     def __call__(self, *a, **kw):
-        for a2, kw2, _return in self.calls:
-            if (a, kw) == (a2, kw2):
-                return _return
-        return self.default
+        return next(
+            (_return for a2, kw2, _return in self.calls if (a, kw) == (a2, kw2)),
+            self.default,
+        )
 
     def setup_call(self, *a, **kw):
         _return = kw.pop("_return", None)
@@ -87,12 +87,12 @@ class WebTestCase:
 )
 class TestDB:
     def test_write(self, setup_db, image_dir):
-        path = static_dir + '/logos/logo-en.png'
+        path = f'{static_dir}/logos/logo-en.png'
         data = open(path).read()
         d = coverlib.save_image(data, category='b', olid='OL1M')
 
         assert 'OL1M' in d.filename
-        path = config.data_root + '/localdisk/' + d.filename
+        path = f'{config.data_root}/localdisk/{d.filename}'
         assert open(path).read() == data
 
 
@@ -116,13 +116,13 @@ class TestWebappWithDB(WebTestCase):
         assert id1 < id2
         assert (
             b.open('/b/olid/OL1M.jpg').read()
-            == open(static_dir + '/logos/logo-it.png').read()
+            == open(f'{static_dir}/logos/logo-it.png').read()
         )
 
         b.open('/b/touch', urllib.parse.urlencode({'id': id1}))
         assert (
             b.open('/b/olid/OL1M.jpg').read()
-            == open(static_dir + '/logos/logo-en.png').read()
+            == open(f'{static_dir}/logos/logo-en.png').read()
         )
 
     def test_delete(self, setup_db):

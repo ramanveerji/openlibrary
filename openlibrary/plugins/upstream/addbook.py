@@ -52,7 +52,7 @@ def get_recaptcha():
 
     def is_plugin_enabled(name):
         plugin_names = delegate.get_plugins()
-        return name in plugin_names or "openlibrary.plugins." + name in plugin_names
+        return name in plugin_names or f"openlibrary.plugins.{name}" in plugin_names
 
     if is_plugin_enabled('recaptcha') and not recaptcha_exempt():
         public_key = config.plugin_recaptcha.public_key
@@ -69,7 +69,7 @@ def make_author(key: str, name: str) -> Author:
     >>> make_author("OL123A", "Samuel Clemens")
     <Author: '/authors/OL123A'>
     """
-    key = "/authors/" + key
+    key = f"/authors/{key}"
     return web.ctx.site.new(
         key, {"key": key, "type": {"key": "/type/author"}, "name": name}
     )
@@ -292,8 +292,7 @@ class addbook(delegate.page):
         if work_key == 'none-of-these':
             return None  # Case 1, from check page
 
-        work = work_key and web.ctx.site.get(work_key)
-        if work:
+        if work := work_key and web.ctx.site.get(work_key):
             edition = self.try_edition_match(
                 work=work,
                 publisher=i.publisher,
@@ -303,16 +302,14 @@ class addbook(delegate.page):
             )
             return edition or work  # Case 3 or 2, from check page
 
-        edition = self.try_edition_match(
+        if edition := self.try_edition_match(
             title=i.title,
             author_key=author_key,
             publisher=i.publisher,
             publish_year=i.publish_year,
             id_name=i.id_name,
             id_value=i.id_value,
-        )
-
-        if edition:
+        ):
             return edition  # Case 2 or 3 or 4, from add page
 
         solr = get_solr()
@@ -395,9 +392,7 @@ class addbook(delegate.page):
                 publisher, work.publisher, stopwords=("publisher", "publishers", "and")
             )
 
-            editions = web.ctx.site.get_many(
-                ["/books/" + key for key in work.edition_key]
-            )
+            editions = web.ctx.site.get_many([f"/books/{key}" for key in work.edition_key])
             for e in editions:
                 d: dict = {}
                 if publisher and (not e.publishers or e.publishers[0] != publisher):
@@ -575,13 +570,13 @@ class SaveBookHelper:
                 self.delete(self.work.key, comment=comment)
             return
 
-        just_editing_work = edition_data is None
         if work_data:
             # Create any new authors that were added
             saveutil.create_authors_from_form_data(
                 work_data.get("authors") or [], formdata.get('authors') or []
             )
 
+            just_editing_work = edition_data is None
             if not just_editing_work:
                 # Mypy misses that "not just_editing_work" means there is edition data.
                 assert self.edition
@@ -693,11 +688,7 @@ class SaveBookHelper:
             as_admin(edition_config._save)("add new fields")
 
     def process_input(self, i):
-        if 'edition' in i:
-            edition = self.process_edition(i.edition)
-        else:
-            edition = None
-
+        edition = self.process_edition(i.edition) if 'edition' in i else None
         if 'work' in i and self.use_work_edits(i):
             work = self.process_work(i.work)
         else:
@@ -814,19 +805,17 @@ class SaveBookHelper:
             # No edition data -> just editing work, so work data matters
             return True
 
-        has_edition_work = (
-            'works' in formdata.edition
-            and formdata.edition.works
-            and formdata.edition.works[0].key
-        )
-
-        if has_edition_work:
-            old_work_key = formdata.work.key
-            new_work_key = formdata.edition.works[0].key
-            return old_work_key == new_work_key
-        else:
+        if not (
+            has_edition_work := (
+                'works' in formdata.edition
+                and formdata.edition.works
+                and formdata.edition.works[0].key
+            )
+        ):
             # i.e. editing an orphan; so we care about the work
             return True
+        old_work_key = formdata.work.key
+        return old_work_key == formdata.edition.works[0].key
 
 
 class book_edit(delegate.page):
@@ -840,7 +829,7 @@ class book_edit(delegate.page):
             return render_template(
                 "permission_denied",
                 web.ctx.fullpath,
-                "Permission denied to edit " + key + ".",
+                f"Permission denied to edit {key}.",
             )
 
         edition = web.ctx.site.get(key, v)
@@ -875,11 +864,7 @@ class book_edit(delegate.page):
 
         if edition is None:
             raise web.notfound()
-        if edition.works:
-            work = edition.works[0]
-        else:
-            work = None
-
+        work = edition.works[0] if edition.works else None
         add = (
             edition.revision == 1
             and work
@@ -921,7 +906,7 @@ class work_edit(delegate.page):
             return render_template(
                 "permission_denied",
                 web.ctx.fullpath,
-                "Permission denied to edit " + key + ".",
+                f"Permission denied to edit {key}.",
             )
 
         work = web.ctx.site.get(key, v)
@@ -970,7 +955,7 @@ class author_edit(delegate.page):
             return render_template(
                 "permission_denied",
                 web.ctx.fullpath,
-                "Permission denied to edit " + key + ".",
+                f"Permission denied to edit {key}.",
             )
 
         author = web.ctx.site.get(key)
@@ -1022,12 +1007,10 @@ class daisy(delegate.page):
     path = "(/books/.*)/daisy"
 
     def GET(self, key):
-        page = web.ctx.site.get(key)
-
-        if not page:
+        if page := web.ctx.site.get(key):
+            return render_template("books/daisy", page)
+        else:
             raise web.notfound()
-
-        return render_template("books/daisy", page)
 
 
 class work_identifiers(delegate.view):
@@ -1049,13 +1032,10 @@ class work_identifiers(delegate.view):
         else:
             add_flash_message("error", "The ISBN number you entered was not valid")
             raise web.redirect(web.ctx.path)
-        if edition.works:
-            work = edition.works[0]
-        else:
-            work = None
+        work = edition.works[0] if edition.works else None
         edition.set_identifiers(data)
         saveutil.save(edition)
-        saveutil.commit(comment="Added an %s identifier." % typ, action="edit-book")
+        saveutil.commit(comment=f"Added an {typ} identifier.", action="edit-book")
         add_flash_message("info", "Thank you very much for improving that record!")
         raise web.redirect(web.ctx.path)
 

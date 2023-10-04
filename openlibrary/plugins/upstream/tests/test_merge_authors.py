@@ -67,7 +67,7 @@ class MockSite(client.Site):
 
 def test_MockSite():
     site = MockSite()
-    assert list(site.docs) == []
+    assert not list(site.docs)
 
     site.add(
         [

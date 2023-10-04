@@ -193,12 +193,11 @@ class DataProvider:
             r.raise_for_status()
             response = r.json()
             if 'error' not in response:
-                lite_metadata = {
+                return {
                     key: response['result'][key]
                     for key in IA_METADATA_FIELDS
                     if key in response['result']
                 }
-                return lite_metadata
             else:
                 return {
                     'error': response['error'],
@@ -443,27 +442,28 @@ class BetterDataProvider(LegacyDataProvider):
 
     def _preload_works(self):
         """Preloads works for all editions in the cache."""
-        keys = []
-        for doc in self.cache.values():
-            if doc and doc['type']['key'] == '/type/edition' and doc.get('works'):
-                keys.append(doc['works'][0]['key'])
+        keys = [
+            doc['works'][0]['key']
+            for doc in self.cache.values()
+            if doc and doc['type']['key'] == '/type/edition' and doc.get('works')
+        ]
         # print "preload_works, found keys", keys
         self.preload_documents0(keys)
 
     def _preload_editions(self):
-        keys = []
-        for doc in self.cache.values():
-            if doc and doc['type']['key'] == '/type/work':
-                keys.append(doc['key'])
+        keys = [
+            doc['key']
+            for doc in self.cache.values()
+            if doc and doc['type']['key'] == '/type/work'
+        ]
         self.preload_editions_of_works(keys)
 
     async def _preload_metadata_of_editions(self):
-        identifiers = []
-        for doc in self.cache.values():
-            if doc and doc['type']['key'] == '/type/edition' and doc.get('ocaid'):
-                identifiers.append(doc['ocaid'])
-                # source_records = doc.get("source_records", [])
-                # identifiers.extend(r[len("ia:"):] for r in source_records if r.startswith("ia:"))
+        identifiers = [
+            doc['ocaid']
+            for doc in self.cache.values()
+            if doc and doc['type']['key'] == '/type/edition' and doc.get('ocaid')
+        ]
         await self.preload_metadata(identifiers)
 
     def _preload_authors(self):

@@ -108,22 +108,22 @@ def _get_object(site, key):
 
     # redirect all /.*/ia:foo to /books/ia:foo
     if obj is None and basename.startswith("ia:"):
-        key = "/books/" + basename
+        key = f"/books/{basename}"
         obj = site.get(key)
 
     # redirect all /.*/OL123W to /works/OL123W
     if obj is None and basename.startswith("OL") and basename.endswith("W"):
-        key = "/works/" + basename
+        key = f"/works/{basename}"
         obj = site.get(key)
 
     # redirect all /.*/OL123M to /books/OL123M
     if obj is None and basename.startswith("OL") and basename.endswith("M"):
-        key = "/books/" + basename
+        key = f"/books/{basename}"
         obj = site.get(key)
 
     # redirect all /.*/OL123A to /authors/OL123A
     if obj is None and basename.startswith("OL") and basename.endswith("A"):
-        key = "/authors/" + basename
+        key = f"/authors/{basename}"
         obj = site.get(key)
 
     # Disabled temporarily as the index is not ready the db
@@ -144,7 +144,7 @@ def get_readable_path(site, path, patterns, encoding=None):
 
     def match(path):
         for pat, _type, _property, default_title in patterns:
-            m = web.re_compile('^' + pat).match(path)
+            m = web.re_compile(f'^{pat}').match(path)
             if m:
                 prefix = m.group()
                 extra = web.lstrips(path, prefix)
@@ -154,7 +154,7 @@ def get_readable_path(site, path, patterns, encoding=None):
                 middle = web.listget(tokens, 1, "")
                 suffix = web.listget(tokens, 2, "")
                 if suffix:
-                    suffix = "/" + suffix
+                    suffix = f"/{suffix}"
 
                 return _type, _property, default_title, prefix, middle, suffix
         return None, None, None, None, None, None
@@ -186,9 +186,9 @@ def get_readable_path(site, path, patterns, encoding=None):
             # Explicitly only run for python3 to solve #4033
             from urllib.parse import quote_plus
 
-            middle = '/' + quote_plus(h.urlsafe(title.strip()))
+            middle = f'/{quote_plus(h.urlsafe(title.strip()))}'
         except ImportError:
-            middle = '/' + h.urlsafe(title.strip())
+            middle = f'/{h.urlsafe(title.strip())}'
     else:
         middle = ""
 

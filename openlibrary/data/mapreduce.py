@@ -112,7 +112,7 @@ class Disk:
         All the values with same key will come together as each file is sorted, but there is no guaranty on the global order of keys.
         """
         for f in self.files:
-            cmd = "gzip -cd %s | sort -S1G" % f.name
+            cmd = f"gzip -cd {f.name} | sort -S1G"
             logger.info(cmd)
             p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
             for line in p.stdout:

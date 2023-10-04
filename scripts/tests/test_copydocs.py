@@ -46,11 +46,7 @@ class FakeServer:
         :param list of str keys:
         :return: Map of key to document
         """
-        result = {}
-        for k in keys:
-            if k in self.db:
-                result[k] = self.get(k)
-        return result
+        return {k: self.get(k) for k in keys if k in self.db}
 
     def save_many(self, docs: list[dict], comment: str | None = None) -> None:
         """

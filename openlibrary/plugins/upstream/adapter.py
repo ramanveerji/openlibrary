@@ -65,11 +65,7 @@ class proxy:
         self.input = web.input(_method='GET', _unicode=False)
         self.path = web.ctx.path
 
-        if web.ctx.method in ['POST', 'PUT']:
-            self.data = web.data()
-        else:
-            self.data = None
-
+        self.data = web.data() if web.ctx.method in ['POST', 'PUT'] else None
         headers = {
             k[len('HTTP_') :].replace('-', '_').lower(): v
             for k, v in web.ctx.environ.items()
@@ -135,11 +131,14 @@ def convert_key(key, mapping=None):
     elif key == '/':
         return '/upstream'
 
-    for new, old in mapping.items():
-        if key.startswith(new):
-            key2 = old + key[len(new) :]
-            return key2
-    return key
+    return next(
+        (
+            old + key[len(new) :]
+            for new, old in mapping.items()
+            if key.startswith(new)
+        ),
+        key,
+    )
 
 
 def convert_dict(d, mapping=None):
@@ -161,9 +160,7 @@ def convert_dict(d, mapping=None):
 
 
 def unconvert_key(key):
-    if key == '/upstream':
-        return '/'
-    return convert_key(key, iconversions)
+    return '/' if key == '/upstream' else convert_key(key, iconversions)
 
 
 def unconvert_dict(d):

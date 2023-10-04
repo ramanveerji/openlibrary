@@ -86,7 +86,7 @@ class OpenLibrary:
         section = section or self.base_url.split('://')[-1]
 
         if not config.has_section(section):
-            raise Exception("No section found with name %s in ~/.olrc" % repr(section))
+            raise Exception(f"No section found with name {repr(section)} in ~/.olrc")
 
         username = config.get(section, 'username')
         password = config.get(section, 'password')
@@ -108,19 +108,18 @@ class OpenLibrary:
             self.cookie = ';'.join([c.split(';')[0] for c in cookies])
 
     def get(self, key, v=None):
-        response = self._request(key + '.json', params={'v': v} if v else {})
+        response = self._request(f'{key}.json', params={'v': v} if v else {})
         return unmarshal(response.json())
 
     def get_many(self, keys):
         """Get multiple documents in a single request as a dictionary."""
-        if len(keys) > 100:
-            # Process in batches to avoid crossing the URL length limit.
-            d = {}
-            for chunk in web.group(keys, 100):
-                d.update(self._get_many(chunk))
-            return d
-        else:
+        if len(keys) <= 100:
             return self._get_many(keys)
+        # Process in batches to avoid crossing the URL length limit.
+        d = {}
+        for chunk in web.group(keys, 100):
+            d.update(self._get_many(chunk))
+        return d
 
     def _get_many(self, keys):
         response = self._request("/api/get_many", params={"keys": json.dumps(keys)})
@@ -130,7 +129,7 @@ class OpenLibrary:
         headers = {'Content-Type': 'application/json'}
         data = marshal(data)
         if comment:
-            headers['Opt'] = '"%s/dev/docs/api"; ns=42' % self.base_url
+            headers['Opt'] = f'"{self.base_url}/dev/docs/api"; ns=42'
             headers['42-comment'] = comment
         data = json.dumps(data)
         return self._request(key, method="PUT", data=data, headers=headers).content
@@ -141,14 +140,14 @@ class OpenLibrary:
 
         # use HTTP Extension Framework to add custom headers. see RFC 2774 for more details.
         if comment or action:
-            headers['Opt'] = '"%s/dev/docs/api"; ns=42' % self.base_url
+            headers['Opt'] = f'"{self.base_url}/dev/docs/api"; ns=42'
         if comment:
             headers['42-comment'] = comment
         if action:
             headers['42-action'] = action
 
         response = self._request(
-            '/api/' + name, method="POST", data=json.dumps(query), headers=headers
+            f'/api/{name}', method="POST", data=json.dumps(query), headers=headers
         )
         return response.json()
 
@@ -195,9 +194,8 @@ class OpenLibrary:
 
         if 'limit' in q and q['limit'] is False:
             return unlimited_query(q)
-        else:
-            response = self._request("/query.json", params={"query": json.dumps(q)})
-            return unmarshal(response.json())
+        response = self._request("/query.json", params={"query": json.dumps(q)})
+        return unmarshal(response.json())
 
     def search(self, query, limit=10, offset=0, fields: list[str] | None = None):
         return self._request(
@@ -276,20 +274,19 @@ def parse_datetime(value):
     """
     if isinstance(value, datetime.datetime):
         return value
-    else:
-        tokens = re.split(r'-|T|:|\.| ', value)
-        return datetime.datetime(*map(int, tokens))
+    tokens = re.split(r'-|T|:|\.| ', value)
+    return datetime.datetime(*map(int, tokens))
 
 
 class Text(str):
     __slots__ = ()
 
     def __repr__(self):
-        return "<text: %s>" % str.__repr__(self)
+        return f"<text: {str.__repr__(self)}>"
 
 
 class Reference(str):
     __slots__ = ()
 
     def __repr__(self):
-        return "<ref: %s>" % str.__repr__(self)
+        return f"<ref: {str.__repr__(self)}>"

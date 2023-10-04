@@ -10,10 +10,7 @@ class MockTranslations(dict):
         return self.get(message, message)
 
     def ungettext(self, message1, message2, n):
-        if n == 1:
-            return self.gettext(message1)
-        else:
-            return self.gettext(message2)
+        return self.gettext(message1) if n == 1 else self.gettext(message2)
 
 
 class MockLoadTranslations(dict):

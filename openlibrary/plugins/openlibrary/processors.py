@@ -15,29 +15,22 @@ class ProfileProcessor:
 
     def __call__(self, handler):
         i = web.input(_method="GET", _profile="")
-        if i._profile.lower() == "true":
-            out, result = web.profile(handler)()
-            if isinstance(out, web.template.TemplateResult):
-                out.__body__ = (
-                    out.get('__body__', '')
-                    + '<pre class="profile">'
-                    + web.websafe(result)
-                    + '</pre>'
-                )
-                return out
-            elif isinstance(out, str):
-                return (
-                    out
-                    + '<br/>'
-                    + '<pre class="profile">'
-                    + web.websafe(result)
-                    + '</pre>'
-                )
-            else:
-                # don't know how to handle this.
-                return out
-        else:
+        if i._profile.lower() != "true":
             return handler()
+        out, result = web.profile(handler)()
+        if isinstance(out, web.template.TemplateResult):
+            out.__body__ = (
+                out.get('__body__', '')
+                + '<pre class="profile">'
+                + web.websafe(result)
+                + '</pre>'
+            )
+            return out
+        elif isinstance(out, str):
+            return f'{out}<br/><pre class="profile">{web.websafe(result)}</pre>'
+        else:
+            # don't know how to handle this.
+            return out
 
 
 class CORSProcessor:

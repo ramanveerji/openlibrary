@@ -149,11 +149,10 @@ def within_date_range(
             or (current_month == end_month and current_day > end_day)
         ):
             return False
-    else:  # Duration is within a single month
-        if (current_month != start_month) or (
+    elif (current_month != start_month) or (
             current_day < start_day or current_day > end_day
         ):
-            return False
+        return False
 
     return True
 

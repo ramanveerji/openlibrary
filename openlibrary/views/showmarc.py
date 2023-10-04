@@ -13,7 +13,7 @@ class old_show_marc(app.view):
     path = "/show-marc/(.*)"
 
     def GET(self, param):
-        raise web.seeother('/show-records/' + param)
+        raise web.seeother(f'/show-records/{param}')
 
 
 class show_ia(app.view):
@@ -30,7 +30,7 @@ class show_ia(app.view):
             if e.response.status_code == 404:
                 error_404 = True
             else:
-                return "ERROR:" + str(e)
+                return f"ERROR:{str(e)}"
 
         if error_404:  # no MARC record
             url = f'https://archive.org/download/{ia}/{ia}_meta.xml'
@@ -39,14 +39,11 @@ class show_ia(app.view):
                 response.raise_for_status()
                 data = response.content
             except requests.HTTPError as e:
-                return "ERROR:" + str(e)
-            raise web.seeother('https://archive.org/details/' + ia)
+                return f"ERROR:{str(e)}"
+            raise web.seeother(f'https://archive.org/details/{ia}')
 
         books = web.ctx.site.things(
-            {
-                'type': '/type/edition',
-                'source_records': 'ia:' + ia,
-            }
+            {'type': '/type/edition', 'source_records': f'ia:{ia}'}
         ) or web.ctx.site.things(
             {
                 'type': '/type/edition',
@@ -59,7 +56,7 @@ class show_ia(app.view):
         try:
             leader_len = int(data[:5])
         except ValueError:
-            return "ERROR reading MARC for " + ia
+            return f"ERROR reading MARC for {ia}"
 
         if len(data) != leader_len:
             data = data.decode('utf-8').encode('raw_unicode_escape')
@@ -95,18 +92,16 @@ class show_marc(app.view):
     path = r"/show-records/(.*):(\d+):(\d+)"
 
     def GET(self, filename, offset, length):
-        m = re_bad_meta_mrc.match(filename)
-        if m:
-            raise web.seeother('/show-records/ia:' + m.group(1))
-        m = re_lc_sanfranpl.match(filename)
-        if m:  # archive.org is case-sensitive
+        if m := re_bad_meta_mrc.match(filename):
+            raise web.seeother(f'/show-records/ia:{m.group(1)}')
+        if m := re_lc_sanfranpl.match(filename):
             mixed_case = (
                 f'SanFranPL{m.group(1)}/SanFranPL{m.group(2)}.out:{offset}:{length}'
             )
-            raise web.seeother('/show-records/' + mixed_case)
+            raise web.seeother(f'/show-records/{mixed_case}')
         if filename == 'collingswoodlibrarymarcdump10-27-2008/collingswood.out':
             loc = f'CollingswoodLibraryMarcDump10-27-2008/Collingswood.out:{offset}:{length}'
-            raise web.seeother('/show-records/' + loc)
+            raise web.seeother(f'/show-records/{loc}')
 
         loc = f"marc:{filename}:{offset}:{length}"
 
@@ -121,7 +116,7 @@ class show_marc(app.view):
         length = int(length)
 
         r0, r1 = offset, offset + 100000
-        url = 'https://archive.org/download/%s' % filename
+        url = f'https://archive.org/download/{filename}'
         headers = {'Range': 'bytes=%d-%d' % (r0, r1)}
 
         try:
@@ -129,7 +124,7 @@ class show_marc(app.view):
             response.raise_for_status()
             result = response.content[:100000]
         except requests.HTTPError as e:
-            return "ERROR:" + str(e)
+            return f"ERROR:{str(e)}"
 
         if (len_in_rec := int(result[:5])) != length:
             raise web.seeother(
@@ -139,7 +134,7 @@ class show_marc(app.view):
         from openlibrary.catalog.marc import html
 
         try:
-            record = html.html_record(result[0:length])
+            record = html.html_record(result[:length])
         except ValueError:
             record = None
 

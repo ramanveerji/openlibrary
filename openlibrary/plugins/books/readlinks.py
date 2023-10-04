@@ -32,19 +32,16 @@ def ol_query(name, value):
 def get_solr_select_url():
     c = config.get("plugin_worksearch")
     base_url = c and c.get('solr_base_url')
-    return base_url and (base_url + "/select")
+    return base_url and f"{base_url}/select"
 
 
 def get_work_iaids(wkey):
     # wid = wkey.split('/')[2]
     solr_select_url = get_solr_select_url()
-    filter = 'ia'
-    q = 'key:' + wkey
+    q = f'key:{wkey}'
     stats.begin('solr', url=wkey)
-    solr_select = (
-        solr_select_url
-        + f"?version=2.2&q.op=AND&q={q}&rows=10&fl={filter}&qt=standard&wt=json&fq=type:work"
-    )
+    filter = 'ia'
+    solr_select = f"{solr_select_url}?version=2.2&q.op=AND&q={q}&rows=10&fl={filter}&qt=standard&wt=json&fq=type:work"
     reply = requests.get(solr_select).json()
     stats.end()
     print(reply)
@@ -70,34 +67,22 @@ def get_eids_for_wids(wids):
     solr_select_url = get_solr_select_url()
     filter = 'edition_key'
     q = '+OR+'.join(wids)
-    solr_select = (
-        solr_select_url
-        + f"?version=2.2&q.op=AND&q={q}&rows=10&fl=key,{filter}&qt=standard&wt=json&fq=type:work"
-    )
+    solr_select = f"{solr_select_url}?version=2.2&q.op=AND&q={q}&rows=10&fl=key,{filter}&qt=standard&wt=json&fq=type:work"
     reply = requests.get(solr_select).json()
     if reply['response']['numFound'] == 0:
         return []
     rows = reply['response']['docs']
-    result = {r['key']: r[filter][0] for r in rows if len(r.get(filter, []))}
-    return result
+    return {r['key']: r[filter][0] for r in rows if len(r.get(filter, []))}
 
 
 # Not yet used.  Solr editions aren't up-to-date (6/2011)
 def get_solr_edition_records(iaids):
     solr_select_url = get_solr_select_url()
     filter = 'title'
-    q = '+OR+'.join('ia:' + id for id in iaids)
-    solr_select = (
-        solr_select_url
-        + f"?version=2.2&q.op=AND&q={q}&rows=10&fl=key,{filter}&qt=standard&wt=json"
-    )
+    q = '+OR+'.join(f'ia:{id}' for id in iaids)
+    solr_select = f"{solr_select_url}?version=2.2&q.op=AND&q={q}&rows=10&fl=key,{filter}&qt=standard&wt=json"
     reply = requests.get(solr_select).json()
-    if reply['response']['numFound'] == 0:
-        return []
-    rows = reply['response']['docs']
-    return rows
-    result = {r['key']: r[filter][0] for r in rows if len(r.get(filter, []))}
-    return result
+    return [] if reply['response']['numFound'] == 0 else reply['response']['docs']
 
 
 class ReadProcessor:
@@ -143,12 +128,10 @@ class ReadProcessor:
         ekey = edition.get('key', '')
 
         if status == 'full access':
-            itemURL = 'http://www.archive.org/stream/%s' % (iaid)
+            itemURL = f'http://www.archive.org/stream/{iaid}'
         else:
             # this could be rewrit in terms of iaid...
-            itemURL = 'http://openlibrary.org{}/{}/borrow'.format(
-                ekey, helpers.urlsafe(edition.get('title', 'untitled'))
-            )
+            itemURL = f"http://openlibrary.org{ekey}/{helpers.urlsafe(edition.get('title', 'untitled'))}/borrow"
         result = {
             # XXX add lastUpdate
             'enumcron': False,
@@ -167,9 +150,9 @@ class ReadProcessor:
             # can be rewrit in terms of iaid
             # XXX covers url from yaml?
             result['cover'] = {
-                "small": "https://covers.openlibrary.org/b/id/%s-S.jpg" % cover_id,
-                "medium": "https://covers.openlibrary.org/b/id/%s-M.jpg" % cover_id,
-                "large": "https://covers.openlibrary.org/b/id/%s-L.jpg" % cover_id,
+                "small": f"https://covers.openlibrary.org/b/id/{cover_id}-S.jpg",
+                "medium": f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg",
+                "large": f"https://covers.openlibrary.org/b/id/{cover_id}-L.jpg",
             }
 
         return result
@@ -193,10 +176,7 @@ class ReadProcessor:
         # determine potential ia items for this identifier,
         orig_iaid = doc.get('ocaid')
         doc_works = doc.get('works')
-        if doc_works and len(doc_works) > 0:
-            wkey = doc_works[0]['key']
-        else:
-            wkey = None
+        wkey = doc_works[0]['key'] if doc_works and len(doc_works) > 0 else None
         work = None
         subjects = []
         if wkey:
@@ -274,10 +254,7 @@ class ReadProcessor:
         items = [item for item in items if item]
 
         ids = data.get('identifiers', {})
-        if self.options.get('no_data'):
-            returned_data = None
-        else:
-            returned_data = data
+        returned_data = None if self.options.get('no_data') else data
         result = {
             'records': {
                 data['key']: {
@@ -358,10 +335,7 @@ class ReadProcessor:
         result = {}
         for r in requests:
             bib_keys = r.split(';')
-            if r.lower().startswith('id:'):
-                result_key = bib_keys.pop(0)[3:]
-            else:
-                result_key = r
+            result_key = bib_keys.pop(0)[3:] if r.lower().startswith('id:') else r
             sub_result = self.make_record(bib_keys)
             if sub_result:
                 result[result_key] = sub_result
@@ -392,7 +366,7 @@ def readlinks(req, options):
             """For load-testing, handle a special syntax"""
             wids = req.split('|')
             mapping = get_solr_fields_for_works('edition_key', wids[:5])
-            req = '|'.join(('olid:' + k) for k in mapping.values())
+            req = '|'.join(f'olid:{k}' for k in mapping.values())
 
         result = rp.process(req)
 

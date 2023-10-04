@@ -41,9 +41,7 @@ class Ratings(db.CommonExtras):
     @classmethod
     def total_num_books_rated(cls, since=None, distinct=False) -> int | None:
         oldb = db.get_db()
-        query = "SELECT count(%s work_id) from ratings" % (
-            'DISTINCT' if distinct else ''
-        )
+        query = f"SELECT count({'DISTINCT' if distinct else ''} work_id) from ratings"
         if since:
             query += " WHERE created >= $since"
         results = oldb.query(query, vars={'since': since})
@@ -207,8 +205,11 @@ class Ratings(db.CommonExtras):
                 edition_id=edition_id,
             )
 
-        users_rating_for_work = cls.get_users_rating_for_work(username, work_id)
-        if not users_rating_for_work:
+        if not (
+            users_rating_for_work := cls.get_users_rating_for_work(
+                username, work_id
+            )
+        ):
             return oldb.insert(
                 'ratings',
                 username=username,
@@ -216,6 +217,5 @@ class Ratings(db.CommonExtras):
                 rating=rating,
                 edition_id=edition_id,
             )
-        else:
-            where = "work_id=$work_id AND username=$username"
-            return oldb.update('ratings', where=where, rating=rating, vars=data)
+        where = "work_id=$work_id AND username=$username"
+        return oldb.update('ratings', where=where, rating=rating, vars=data)

@@ -704,7 +704,7 @@ def load_table(filename):
         for d in line[2].strip().split(" "):
             assert len(d) == 4
             assert d[3] == 'd'
-            value += chr(int(d[0:3]))
+            value += chr(int(d[:3]))
 
         mapping[key] = value
     return mapping

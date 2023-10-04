@@ -161,7 +161,7 @@ class BookshelvesEvents(db.CommonExtras):
             event_date=event_date,
         )
 
-    def update_event_data(cls, pid, data):
+    def update_event_data(self, pid, data):
         oldb = db.get_db()
 
         where_clause = 'id=$id'
@@ -169,7 +169,7 @@ class BookshelvesEvents(db.CommonExtras):
         update_time = datetime.utcnow()
 
         return oldb.update(
-            cls.TABLENAME,
+            self.TABLENAME,
             where=where_clause,
             vars=where_vars,
             updated=update_time,

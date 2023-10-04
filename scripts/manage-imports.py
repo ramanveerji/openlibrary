@@ -100,8 +100,7 @@ def import_ocaids(*ocaids, **kwargs):
         logger.info("skipping batch adding, already present")
 
     for ocaid in ocaids:
-        item = ImportItem.find_by_identifier(ocaid)
-        if item:
+        if item := ImportItem.find_by_identifier(ocaid):
             do_import(item, servername=servername, require_marc=require_marc)
         else:
             logger.error(f"{ocaid} is not found in the import queue")

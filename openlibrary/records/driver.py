@@ -119,9 +119,7 @@ def run_filter(matched_keys, params):
                         return False
                 elif k in i1:
                     # Recursively match for other keys
-                    if compare(i1[k], i2[k]):
-                        pass
-                    else:
+                    if not compare(i1[k], i2[k]):
                         return False
                 else:
                     return False

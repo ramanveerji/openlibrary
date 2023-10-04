@@ -90,12 +90,11 @@ def longquery(query, vars, chunk_size=10000):
 
     tx = db.transaction()
     try:
-        db.query("DECLARE longquery NO SCROLL CURSOR FOR " + query, vars=vars)
+        db.query(f"DECLARE longquery NO SCROLL CURSOR FOR {query}", vars=vars)
         while True:
-            chunk = db.query(
+            if chunk := db.query(
                 "FETCH FORWARD $chunk_size FROM longquery", vars=locals()
-            ).list()
-            if chunk:
+            ).list():
                 yield chunk
             else:
                 break

@@ -32,9 +32,7 @@ BETTERWORLDBOOKS_API_URL = (
     'https://products.betterworldbooks.com/service.aspx?IncludeAmazon=True&ItemId='
 )
 affiliate_server_url = None
-BWB_AFFILIATE_LINK = 'http://www.anrdoezrs.net/links/{}/type/dlg/http://www.betterworldbooks.com/-id-%s'.format(
-    h.affiliate_id('betterworldbooks')
-)
+BWB_AFFILIATE_LINK = f"http://www.anrdoezrs.net/links/{h.affiliate_id('betterworldbooks')}/type/dlg/http://www.betterworldbooks.com/-id-%s"
 AMAZON_FULL_DATE_RE = re.compile(r'\d{4}-\d\d-\d\d')
 ISBD_UNIT_PUNCT = ' : '  # ISBD cataloging title-unit separator punctuation
 
@@ -226,11 +224,9 @@ class AmazonAPI:
             logger.exception(f"serialize({product})")
             publish_date = None
 
-        book = {
-            'url': "https://www.amazon.com/dp/{}/?tag={}".format(
-                product.asin, h.affiliate_id('amazon')
-            ),
-            'source_records': ['amazon:%s' % product.asin],
+        return {
+            'url': f"https://www.amazon.com/dp/{product.asin}/?tag={h.affiliate_id('amazon')}",
+            'source_records': [f'amazon:{product.asin}'],
             'isbn_10': [product.asin],
             'isbn_13': [isbn_10_to_isbn_13(product.asin)],
             'price': price and price.display_amount,
@@ -240,17 +236,18 @@ class AmazonAPI:
                 and item_info.title
                 and getattr(item_info.title, 'display_value')
             ),
-            'cover': (
-                images.primary.large.url
-                if images
-                and images.primary
-                and images.primary.large
-                and images.primary.large.url
-                and '/01RmK+J4pJL.' not in images.primary.large.url
-                else None
-            ),
+            'cover': images.primary.large.url
+            if images
+            and images.primary
+            and images.primary.large
+            and images.primary.large.url
+            and '/01RmK+J4pJL.' not in images.primary.large.url
+            else None,
             'authors': attribution
-            and [{'name': contrib.name} for contrib in attribution.contributors or []],
+            and [
+                {'name': contrib.name}
+                for contrib in attribution.contributors or []
+            ],
             'publishers': list({p for p in (brand, manufacturer) if p}),
             'number_of_pages': (
                 edition_info
@@ -272,7 +269,6 @@ class AmazonAPI:
                 ).lower()
             ),
         }
-        return book
 
 
 @public
@@ -324,34 +320,6 @@ def _get_amazon_metadata(
     """
     # TMP: This is causing a bunch of duplicate imports
     return None
-    if not affiliate_server_url:
-        return None
-
-    if id_type == 'isbn':
-        isbn = normalize_isbn(id_)
-        if isbn is None:
-            return None
-        id_ = isbn
-        if len(id_) == 13 and id_.startswith('978'):
-            isbn = isbn_13_to_isbn_10(id_)
-            if isbn is None:
-                return None
-            id_ = isbn
-
-    try:
-        r = requests.get(f'http://{affiliate_server_url}/isbn/{id_}')
-        r.raise_for_status()
-        if hit := r.json().get('hit'):
-            return hit
-        if retries <= 1:
-            return None
-        time.sleep(sleep_sec)  # sleep before recursive call
-        return _get_amazon_metadata(id_, id_type, resources, retries - 1, sleep_sec)
-    except requests.exceptions.ConnectionError:
-        logger.exception("Affiliate Server unreachable")
-    except requests.exceptions.HTTPError:
-        logger.exception(f"Affiliate Server: id {id_} not found")
-    return None
 
 
 def split_amazon_title(full_title: str) -> tuple[str, str | None]:
@@ -392,11 +360,11 @@ def clean_amazon_metadata_for_load(metadata: dict) -> dict:
         'isbn_13',
         'physical_format',
     ]
-    conforming_metadata = {}
-    for k in conforming_fields:
-        # if valid key and value not None
-        if metadata.get(k) is not None:
-            conforming_metadata[k] = metadata[k]
+    conforming_metadata = {
+        k: metadata[k]
+        for k in conforming_fields
+        if metadata.get(k) is not None
+    }
     if source_records := metadata.get('source_records'):
         asin = source_records[0].replace('amazon:', '')
         if asin[0].isalpha():
@@ -409,7 +377,7 @@ def clean_amazon_metadata_for_load(metadata: dict) -> dict:
         conforming_metadata['subtitle'] = subtitle
     # Record original title if some content has been removed (i.e. parentheses)
     if metadata['title'] != conforming_metadata.get('full_title', title):
-        conforming_metadata['notes'] = "Source title: %s" % metadata['title']
+        conforming_metadata['notes'] = f"Source title: {metadata['title']}"
 
     return conforming_metadata
 
@@ -513,7 +481,7 @@ def _get_betterworldbooks_metadata(isbn: str) -> dict | None:
             price = _price
             qlt = 'new'
 
-    market_price = ('$' + market_price[0]) if market_price else None
+    market_price = f'${market_price[0]}' if market_price else None
     return betterworldbooks_fmt(isbn, qlt, price, market_price)
 
 

@@ -22,8 +22,7 @@ def find_account(username=None, lusername=None, email=None):
 
 
 def find_ia_account(email=None):
-    ia_account = InternetArchiveAccount.get(email=email)
-    return ia_account
+    return InternetArchiveAccount.get(email=email)
 
 
 Login = Form(

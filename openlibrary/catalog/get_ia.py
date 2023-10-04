@@ -16,7 +16,7 @@ MAX_MARC_LENGTH = 100000
 
 def urlopen_keep_trying(url: str, headers=None, **kwargs):
     """Tries to request the url three times, raises HTTPError if 403, 404, or 416.  Returns a requests.Response"""
-    for i in range(3):
+    for _ in range(3):
         try:
             resp = requests.get(url, headers=headers, **kwargs)
             resp.raise_for_status()
@@ -36,8 +36,8 @@ def get_marc_record_from_ia(identifier: str) -> MarcBinary | MarcXml | None:
     metadata = ia.get_metadata(identifier)
     filenames = metadata['_filenames']
 
-    marc_xml_filename = identifier + '_marc.xml'
-    marc_bin_filename = identifier + '_meta.mrc'
+    marc_xml_filename = f'{identifier}_marc.xml'
+    marc_bin_filename = f'{identifier}_meta.mrc'
 
     item_base = f'{IA_DOWNLOAD_URL}{identifier}/'
 

@@ -69,7 +69,7 @@ def test_status_timerange():
     d = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     ipdata = []
     expected_op = []
-    for i in range(10):
+    for _ in range(10):
         doc = MockDoc(_id=d.strftime("counts-%Y-%m-%d"), foo=1)
         ipdata.append(doc)
         expected_op.append([calendar.timegm(d.timetuple()) * 1000, 1])

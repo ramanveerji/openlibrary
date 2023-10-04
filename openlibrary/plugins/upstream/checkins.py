@@ -41,11 +41,7 @@ def is_valid_date(year: int, month: int | None, day: int | None) -> bool:
     2. A year and a month
     3. A year, month, and day
     """
-    if not year:
-        return False
-    if day and not month:
-        return False
-    return True
+    return False if not year else bool(not day or month)
 
 
 @public
@@ -58,10 +54,9 @@ def get_latest_read_date(work_olid: str) -> dict | None:
 
     work_id = extract_numeric_id_from_olid(work_olid)
 
-    result = BookshelvesEvents.get_latest_event_date(
+    return BookshelvesEvents.get_latest_event_date(
         username, work_id, BookshelfEvent.FINISH
     )
-    return result
 
 
 class patron_check_ins(delegate.page):
@@ -137,14 +132,13 @@ class patron_check_ins(delegate.page):
             return False
 
         # Date must be valid:
-        if not is_valid_date(
-            data.get('year', None),
-            data.get('month', None),
-            data.get('day', None),
-        ):
-            return False
-
-        return True
+        return bool(
+            is_valid_date(
+                data.get('year', None),
+                data.get('month', None),
+                data.get('day', None),
+            )
+        )
 
 
 class patron_check_in(delegate.page):
@@ -248,9 +242,7 @@ def get_reading_goals(year=None):
         username, BookshelfEvent.FINISH, year
     )
     read_count = len(books_read)
-    result = YearlyGoal(data[0].year, data[0].target, read_count)
-
-    return result
+    return YearlyGoal(data[0].year, data[0].target, read_count)
 
 
 class YearlyGoal:

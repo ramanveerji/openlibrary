@@ -6,7 +6,7 @@ chars = string.ascii_letters + string.digits
 
 
 def random_string(n):
-    return "".join([random.choice(chars) for i in range(n)])
+    return "".join([random.choice(chars) for _ in range(n)])
 
 
 class Disk:
@@ -36,9 +36,8 @@ class Disk:
         prefix = params.get('olid', '')
         filename = self.make_filename(prefix)
         path = os.path.join(self.root, filename)
-        f = open(path, 'w')
-        f.write(data)
-        f.close()
+        with open(path, 'w') as f:
+            f.write(data)
         return filename
 
     def read(self, filename):
@@ -50,9 +49,9 @@ class Disk:
         def exists(filename):
             return os.path.exists(os.path.join(self.root, filename))
 
-        filename = prefix + "_" + random_string(4)
+        filename = f"{prefix}_{random_string(4)}"
         while exists(filename):
-            filename = prefix + "_" + random_string(4)
+            filename = f"{prefix}_{random_string(4)}"
         return filename
 
 
@@ -67,8 +66,7 @@ class LayeredDisk:
 
     def read(self, filename):
         for disk in self.disks:
-            data = disk.read(filename)
-            if data:
+            if data := disk.read(filename):
                 return data
 
     def write(self, data, headers=None):

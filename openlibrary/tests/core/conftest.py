@@ -8,9 +8,8 @@ def dummy_crontabfile(request):
     cronfile = os.tmpnam()
     ip = """* * * * * /bin/true
 * * * * * /bin/true"""
-    f = open(cronfile, "w")
-    f.write(ip)
-    f.close()
+    with open(cronfile, "w") as f:
+        f.write(ip)
     request.addfinalizer(lambda: os.remove(cronfile))
     return cronfile
 
@@ -23,9 +22,8 @@ def crontabfile(request):
         os.unlink("/tmp/crontest")
     cronfile = os.tmpnam()
     ip = "* * * * * touch /tmp/crontest"
-    f = open(cronfile, "w")
-    f.write(ip)
-    f.close()
+    with open(cronfile, "w") as f:
+        f.write(ip)
     request.addfinalizer(lambda: os.remove(cronfile))
     return cronfile
 
@@ -51,7 +49,7 @@ def counter(request):
 def sequence(request):
     """Returns a function that can be called for sequence numbers
     similar to web.ctx.site.sequence.get_next"""
-    t = (x for x in range(100))
+    t = iter(range(100))
 
     def seq_counter(*largs, **kargs):
         return next(t)

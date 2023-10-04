@@ -73,15 +73,14 @@ def _query(category, key, value):
         if category in prefixes:
             olkey = prefixes[category] + value
             return get_cover_id([olkey])
-    else:
-        if category == 'b':
-            if key == 'isbn':
-                value = value.replace("-", "").strip()
-                key = "isbn_"
-            if key == 'oclc':
-                key = 'oclc_numbers'
-            olkeys = ol_things(key, value)
-            return get_cover_id(olkeys)
+    elif category == 'b':
+        if key == 'isbn':
+            value = value.replace("-", "").strip()
+            key = "isbn_"
+        if key == 'oclc':
+            key = 'oclc_numbers'
+        olkeys = ol_things(key, value)
+        return get_cover_id(olkeys)
     return None
 
 
@@ -173,7 +172,7 @@ class upload2:
             _cleanup()
             e = web.badrequest()
             e.data = json.dumps({"code": code, "message": msg})
-            logger.exception("upload2.POST() failed: " + e.data)
+            logger.exception(f"upload2.POST() failed: {e.data}")
             raise e
 
         source_url = i.source_url
@@ -214,7 +213,7 @@ IMAGES_PER_ITEM = 10000
 
 
 def zipview_url_from_id(coverid, size):
-    suffix = size and ("-" + size.upper())
+    suffix = size and f"-{size.upper()}"
     item_index = coverid / IMAGES_PER_ITEM
     itemid = "olcovers%d" % item_index
     zipfile = itemid + suffix + ".zip"
@@ -244,11 +243,11 @@ class cover:
                 raise web.notfound("")
 
         def redirect(id):
-            size_part = size and ("-" + size) or ""
+            size_part = size and f"-{size}" or ""
             url = f"/{category}/id/{id}{size_part}.jpg"
 
             if query := web.ctx.env.get('QUERY_STRING'):
-                url += '?' + query
+                url += f'?{query}'
             raise web.found(url)
 
         if key == 'isbn':
@@ -278,7 +277,7 @@ class cover:
                 pid = "%010d" % int(value)
                 item_id = f"{prefix}covers_{pid[:4]}"
                 item_tar = f"{prefix}covers_{pid[:4]}_{pid[4:6]}.tar"
-                item_file = f"{pid}{'-' + size.upper() if size else ''}"
+                item_file = f"{pid}{f'-{size.upper()}' if size else ''}"
                 path = f"{item_id}/{item_tar}/{item_file}.jpg"
                 protocol = web.ctx.protocol
                 raise web.found(f"{protocol}://archive.org/download/{path}")
@@ -316,7 +315,7 @@ class cover:
             raise web.notfound()
 
     def get_ia_cover_url(self, identifier, size="M"):
-        url = "https://archive.org/metadata/%s/metadata" % identifier
+        url = f"https://archive.org/metadata/{identifier}/metadata"
         try:
             d = requests.get(url).json().get("result", {})
         except (OSError, ValueError):
@@ -345,13 +344,8 @@ class cover:
 
         # Use tar index if available to avoid db query. We have 0-6M images in tar balls.
         if isinstance(coverid, int) and coverid < 6000000 and size in "sml":
-            path = self.get_tar_filename(coverid, size)
-
-            if path:
-                if size:
-                    key = "filename_%s" % size
-                else:
-                    key = "filename"
+            if path := self.get_tar_filename(coverid, size):
+                key = f"filename_{size}" if size else "filename"
                 return web.storage(
                     {"id": coverid, key: path, "created": datetime.datetime(2010, 1, 1)}
                 )
@@ -376,11 +370,7 @@ class cover:
         offset = array_offset and array_offset[index]
         imgsize = array_size and array_size[index]
 
-        if size:
-            prefix = "%s_covers" % size
-        else:
-            prefix = "covers"
-
+        prefix = f"{size}_covers" if size else "covers"
         if imgsize:
             name = "%010d" % coverid
             return f"{prefix}_{name[:4]}_{name[4:6]}.tar:{offset}:{imgsize}"
@@ -392,19 +382,12 @@ class cover:
 @web.memoize
 def get_tar_index(tarindex, size):
     path = os.path.join(config.data_root, get_tarindex_path(tarindex, size))
-    if not os.path.exists(path):
-        return None, None
-
-    return parse_tarindex(open(path))
+    return (None, None) if not os.path.exists(path) else parse_tarindex(open(path))
 
 
 def get_tarindex_path(index, size):
     name = "%06d" % index
-    if size:
-        prefix = "%s_covers" % size
-    else:
-        prefix = "covers"
-
+    prefix = f"{size}_covers" if size else "covers"
     itemname = f"{prefix}_{name[:4]}"
     filename = f"{prefix}_{name[:4]}_{name[4:6]}.index"
     return os.path.join('items', itemname, filename)
@@ -412,12 +395,11 @@ def get_tarindex_path(index, size):
 
 def parse_tarindex(file):
     """Takes tarindex file as file objects and returns array of offsets and array of sizes. The size of the returned arrays will be 10000."""
-    array_offset = array.array('L', [0 for i in range(10000)])
-    array_size = array.array('L', [0 for i in range(10000)])
+    array_offset = array.array('L', [0 for _ in range(10000)])
+    array_size = array.array('L', [0 for _ in range(10000)])
 
     for line in file:
-        line = line.strip()
-        if line:
+        if line := line.strip():
             name, offset, imgsize = line.split("\t")
             coverid = int(name[:10])  # First 10 chars is coverid, followed by ".jpg"
             index = coverid % 10000
@@ -432,14 +414,12 @@ class cover_details:
 
         if key == 'id':
             web.header('Content-Type', 'application/json')
-            d = db.details(value)
-            if d:
-                if isinstance(d['created'], datetime.datetime):
-                    d['created'] = d['created'].isoformat()
-                    d['last_modified'] = d['last_modified'].isoformat()
-                return json.dumps(d)
-            else:
+            if not (d := db.details(value)):
                 raise web.notfound("")
+            if isinstance(d['created'], datetime.datetime):
+                d['created'] = d['created'].isoformat()
+                d['last_modified'] = d['last_modified'].isoformat()
+            return json.dumps(d)
         else:
             value = _query(category, key, value)
             if value is None:
@@ -485,10 +465,7 @@ class query:
 
         json_data = json.dumps(result)
         web.header('Content-Type', 'text/javascript')
-        if i.callback:
-            return f"{i.callback}({json_data});"
-        else:
-            return json_data
+        return f"{i.callback}({json_data});" if i.callback else json_data
 
 
 class touch:
@@ -496,12 +473,10 @@ class touch:
         i = web.input(id=None, redirect_url=None)
         redirect_url = i.redirect_url or web.ctx.get('HTTP_REFERRER')
 
-        id = i.id and safeint(i.id, None)
-        if id:
-            db.touch(id)
-            raise web.seeother(redirect_url)
-        else:
-            return 'no such id: %s' % id
+        if not (id := i.id and safeint(i.id, None)):
+            return f'no such id: {id}'
+        db.touch(id)
+        raise web.seeother(redirect_url)
 
 
 class delete:
@@ -509,22 +484,20 @@ class delete:
         i = web.input(id=None, redirect_url=None)
         redirect_url = i.redirect_url
 
-        id = i.id and safeint(i.id, None)
-        if id:
-            db.delete(id)
-            if redirect_url:
-                raise web.seeother(redirect_url)
-            else:
-                return 'cover has been deleted successfully.'
+        if not (id := i.id and safeint(i.id, None)):
+            return f'no such id: {id}'
+        db.delete(id)
+        if redirect_url:
+            raise web.seeother(redirect_url)
         else:
-            return 'no such id: %s' % id
+            return 'cover has been deleted successfully.'
 
 
 def render_list_preview_image(lst_key):
     """This function takes a list of five books and puts their covers in the correct
     locations to create a new image for social-card"""
     lst = web.ctx.site.get(lst_key)
-    five_seeds = lst.seeds[0:5]
+    five_seeds = lst.seeds[:5]
     background = Image.open(
         "/openlibrary/static/images/Twitter_Social_Card_Background.png"
     )
@@ -534,9 +507,7 @@ def render_list_preview_image(lst_key):
     W, H = background.size
     image = []
     for seed in five_seeds:
-        cover = seed.get_cover()
-
-        if cover:
+        if cover := seed.get_cover():
             response = requests.get(
                 f"https://covers.openlibrary.org/b/id/{cover.id}-M.jpg"
             )

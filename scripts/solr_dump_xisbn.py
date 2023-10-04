@@ -92,8 +92,7 @@ async def stream_bounds(
             data = response.json()
             numFound = data['response']['numFound']
 
-            docs = data['response']['docs']
-            if docs:
+            if docs := data['response']['docs']:
                 seen += len(docs)
                 yield docs[0]['key'], docs[-1]['key']
             else:

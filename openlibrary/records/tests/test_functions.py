@@ -365,7 +365,9 @@ def test_find_matches_by_title_and_publishers(mock_site):
     # A search that should fail
     q = {'publishers': ["Bantam"], 'publish_year': '2000'}
     result = find_matches_by_title_and_publishers(q)
-    assert not result, "Found a match '%s' where there should have been none" % result
+    assert (
+        not result
+    ), f"Found a match '{result}' where there should have been none"
 
     # A search that should return the first entry (title, publisher and year)
     q = {'title': 'Bantam book', 'publishers': ["Bantam"], 'publish_year': '1992'}

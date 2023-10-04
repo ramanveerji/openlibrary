@@ -10,14 +10,14 @@ class Text(str):
     __slots__ = ()
 
     def __repr__(self):
-        return "<text: %s>" % str.__repr__(self)
+        return f"<text: {str.__repr__(self)}>"
 
 
 class Reference(str):
     __slots__ = ()
 
     def __repr__(self):
-        return "<ref: %s>" % str.__repr__(self)
+        return f"<ref: {str.__repr__(self)}>"
 
 
 def parse_datetime(value: datetime | str) -> datetime:

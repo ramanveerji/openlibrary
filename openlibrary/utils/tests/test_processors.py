@@ -14,7 +14,7 @@ class TestRateLimitProcessor:
         monkeypatch.setattr(time, "time", lambda: 123456)
         p = RateLimitProcessor(10)
 
-        for i in range(10):
+        for _ in range(10):
             assert p.check_rate() is True
         assert p.check_rate() is False
 

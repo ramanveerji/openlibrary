@@ -175,14 +175,14 @@ class ratings(delegate.page):
             if i.redir_url
             else i.edition_id
             if i.edition_id
-            else ('/works/OL%sW' % work_id)
+            else f'/works/OL{work_id}W'
         )
         edition_id = (
             int(extract_numeric_id_from_olid(i.edition_id)) if i.edition_id else None
         )
 
         if not user:
-            raise web.seeother('/account/login?redirect=%s' % key)
+            raise web.seeother(f'/account/login?redirect={key}')
 
         username = user.key.split('/')[2]
 
@@ -240,7 +240,7 @@ class booknotes(delegate.page):
         )
 
         if not user:
-            raise web.seeother('/account/login?redirect=/works/%s' % work_id)
+            raise web.seeother(f'/account/login?redirect=/works/{work_id}')
 
         username = user.key.split('/')[2]
 
@@ -258,7 +258,7 @@ class booknotes(delegate.page):
         )
 
         if i.redir:
-            raise web.seeother("/works/%s" % work_id)
+            raise web.seeother(f"/works/{work_id}")
 
         return response('note added')
 
@@ -302,10 +302,10 @@ class work_bookshelves(delegate.page):
             bookshelf_id=None,
             dont_remove=False,
         )
-        key = i.edition_id if i.edition_id else ('/works/OL%sW' % work_id)
+        key = i.edition_id if i.edition_id else f'/works/OL{work_id}W'
 
         if not user:
-            raise web.seeother('/account/login?redirect=%s' % key)
+            raise web.seeother(f'/account/login?redirect={key}')
 
         username = user.key.split('/')[2]
         current_status = Bookshelves.get_users_read_status_of_work(username, work_id)
@@ -352,18 +352,15 @@ class work_editions(delegate.page):
         doc = web.ctx.site.get(key)
         if not doc or doc.type.key != "/type/work":
             raise web.notfound('')
-        else:
-            i = web.input(limit=50, offset=0)
-            limit = h.safeint(i.limit) or 50
-            offset = h.safeint(i.offset) or 0
+        i = web.input(limit=50, offset=0)
+        limit = h.safeint(i.limit) or 50
+        offset = h.safeint(i.offset) or 0
 
-            data = self.get_editions_data(doc, limit=limit, offset=offset)
-            return delegate.RawText(json.dumps(data), content_type="application/json")
+        data = self.get_editions_data(doc, limit=limit, offset=offset)
+        return delegate.RawText(json.dumps(data), content_type="application/json")
 
     def get_editions_data(self, work, limit, offset):
-        if limit > 1000:
-            limit = 1000
-
+        limit = min(limit, 1000)
         keys = web.ctx.site.things(
             {
                 "type": "/type/edition",
@@ -397,18 +394,15 @@ class author_works(delegate.page):
         doc = web.ctx.site.get(key)
         if not doc or doc.type.key != "/type/author":
             raise web.notfound('')
-        else:
-            i = web.input(limit=50, offset=0)
-            limit = h.safeint(i.limit, 50)
-            offset = h.safeint(i.offset, 0)
+        i = web.input(limit=50, offset=0)
+        limit = h.safeint(i.limit, 50)
+        offset = h.safeint(i.offset, 0)
 
-            data = self.get_works_data(doc, limit=limit, offset=offset)
-            return delegate.RawText(json.dumps(data), content_type="application/json")
+        data = self.get_works_data(doc, limit=limit, offset=offset)
+        return delegate.RawText(json.dumps(data), content_type="application/json")
 
     def get_works_data(self, author, limit, offset):
-        if limit > 1000:
-            limit = 1000
-
+        limit = min(limit, 1000)
         keys = web.ctx.site.things(
             {
                 "type": "/type/work",
@@ -441,7 +435,7 @@ class sponsorship_eligibility_check(delegate.page):
     def GET(self, _id):
         i = web.input(patron=None, scan_only=False)
         edition = (
-            web.ctx.site.get('/books/%s' % _id)
+            web.ctx.site.get(f'/books/{_id}')
             if re.match(r'OL[0-9]+M', _id)
             else models.Edition.from_isbn(_id)
         )
@@ -495,8 +489,7 @@ class price_api(delegate.page):
 
         # include ol edition metadata in response, if available
         if book_key:
-            ed = web.ctx.site.get(book_key)
-            if ed:
+            if ed := web.ctx.site.get(book_key):
                 metadata['key'] = ed.key
                 if getattr(ed, 'ocaid'):  # noqa: B009
                     metadata['ocaid'] = ed.ocaid
@@ -606,22 +599,21 @@ class work_delete(delegate.page):
                 }
             )
             all_keys.extend(keys)
-            if len(keys) == limit:
-                if not i.bulk:
-                    raise web.HTTPError(
-                        '400 Bad Request',
-                        data=json.dumps(
-                            {
-                                'error': f'API can only delete {limit} editions per work.',
-                            }
-                        ),
-                        headers={"Content-Type": "application/json"},
-                    )
-                else:
-                    offset += limit
-            else:
+            if len(keys) != limit:
                 break
 
+            if i.bulk:
+                offset += limit
+            else:
+                raise web.HTTPError(
+                    '400 Bad Request',
+                    data=json.dumps(
+                        {
+                            'error': f'API can only delete {limit} editions per work.',
+                        }
+                    ),
+                    headers={"Content-Type": "application/json"},
+                )
         return web.ctx.site.get_many(all_keys, raw=True)
 
     def POST(self, work_id: str):

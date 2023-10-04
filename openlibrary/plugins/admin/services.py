@@ -22,12 +22,7 @@ class Nagios:
         "Returns the stats of the service `service`"
         if not self.data:
             return "error-api"
-        # The service name is kept inside a bunch of nested nodes We
-        # walk up the nodes to find the enclosing <tr> that contains
-        # the service in question. A single step is not enough since
-        # there are nested tables in the layout.
-        service = self.data.find(text=re.compile(service))
-        if service:
+        if service := self.data.find(text=re.compile(service)):
             service_tr = service.findParents("tr")[2]
             status_td = service_tr.find(
                 "td",
@@ -65,8 +60,7 @@ def load_all(config, nagios_url):
     d = defaultdict(list)
     nagios = Nagios(nagios_url)
     for node in config:
-        services = config[node].get('services', [])
-        if services:
+        if services := config[node].get('services', []):
             for service in services:
                 d[node].append(Service(node=node, name=service, nagios=nagios))
     return d

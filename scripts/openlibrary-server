@@ -39,7 +39,7 @@ def start_server():
 
     if len(args) < 1 or sys.argv[0] in ['-h', '--help']:
         print(
-            "USAGE: %s configfile [subcommand] [arguments]" % (sys.argv[0]),
+            f"USAGE: {sys.argv[0]} configfile [subcommand] [arguments]",
             file=sys.stderr,
         )
         sys.exit(1)

@@ -28,7 +28,7 @@ logger = logging.getLogger("openlibrary.importer.promises")
 
 
 def format_date(date: str) -> str:
-    y = date[0:4]
+    y = date[:4]
     m = date[4:6]
     d = date[6:8]
     return f"{y}-{m}-{d}"
@@ -92,8 +92,7 @@ def get_promise_items_url(
     sorts = "sort%5B%5D=addeddate+desc&sort%5B%5D=&sort%5B%5D="
     fields = "fl%5B%5D=identifier"
     rows = 5000
-    url = f"{base}?q={q}&{fields}&{sorts}&rows={rows}&page=1&output=json"
-    return url
+    return f"{base}?q={q}&{fields}&{sorts}&rows={rows}&page=1&output=json"
 
 
 def parse_date(date: str = ''):
@@ -120,7 +119,7 @@ def main(ol_config: str, date: str):
     load_config(ol_config)
     params = parse_date(date)
     promise_ids = get_promise_items(**params)
-    for i, promise_id in enumerate(promise_ids):
+    for promise_id in promise_ids:
         batch_import(promise_id)
 
 

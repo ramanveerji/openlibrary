@@ -69,9 +69,7 @@ class addtag(delegate.page):
                 )
 
         i = utils.unflatten(i)
-        match = self.find_match(i)  # returns None or Tag (if match found)
-
-        if match:
+        if match := self.find_match(i):
             # tag match
             return self.tag_match(match)
         else:
@@ -90,7 +88,7 @@ class addtag(delegate.page):
         Redirect user to the found tag's edit page to add any missing details.
         """
         tag = web.ctx.site.get(match[0])
-        raise safe_seeother(tag.key + "/edit")
+        raise safe_seeother(f"{tag.key}/edit")
 
     def no_match(self, i: web.utils.Storage) -> NoReturn:
         """
@@ -119,7 +117,7 @@ class tag_edit(delegate.page):
             return render_template(
                 "permission_denied",
                 web.ctx.fullpath,
-                "Permission denied to edit " + key + ".",
+                f"Permission denied to edit {key}.",
             )
 
         tag = web.ctx.site.get(key)
@@ -154,8 +152,7 @@ class tag_edit(delegate.page):
 
     def process_input(self, i):
         i = utils.unflatten(i)
-        tag = trim_doc(i)
-        return tag
+        return trim_doc(i)
 
 
 def setup():

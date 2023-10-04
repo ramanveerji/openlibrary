@@ -83,7 +83,7 @@ def gzwrite(path, data):
 
 
 def write_sitemaps(data, outdir, prefix):
-    timestamp = datetime.datetime.utcnow().isoformat() + 'Z'
+    timestamp = f'{datetime.datetime.utcnow().isoformat()}Z'
 
     # maximum permitted entries in one sitemap is 50K.
     for i, rows in enumerate(web.group(data, 50000)):
@@ -101,7 +101,7 @@ def write_siteindex(data, outdir, prefix):
     rows = write_sitemaps(data, outdir, prefix)
     base_url = "http://openlibrary.org/static/sitemaps/"
 
-    filename = "siteindex_%s.xml.gz" % prefix
+    filename = f"siteindex_{prefix}.xml.gz"
     print("generating", filename, file=sys.stderr)
 
     path = os.path.join(outdir, filename)
@@ -130,16 +130,15 @@ def write(path, data):
     print("writing", path)
     mkdir_p(os.path.dirname(path))
 
-    f = open(path, "w")
-    f.write(data)
-    f.close()
+    with open(path, "w") as f:
+        f.write(data)
 
 
 def dirindex(dir, back=".."):
     data = [(f, f) for f in sorted(os.listdir(dir))]
     index = t_html_layout(t_html_sitemap(back, data))
 
-    path = dir + "/index.html"
+    path = f"{dir}/index.html"
     write(path, web.safestr(index))
 
 

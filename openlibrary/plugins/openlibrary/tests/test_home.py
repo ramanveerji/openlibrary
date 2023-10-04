@@ -67,7 +67,7 @@ class TestHomeTemplates:
     def test_stats_template(self, render_template):
         # Make sure that it works fine without any input (skipping section)
         html = str(render_template("home/stats"))
-        assert html == ""
+        assert not html
 
     def test_home_template(self, render_template, mock_site, monkeypatch):
         self.setup_monkeypatch(monkeypatch)

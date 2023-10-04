@@ -89,10 +89,7 @@ def read_data_file(filename: str, max_lines: int = 0):
 
 
 def xopen(path: str, mode: str):
-    if path.endswith(".gz"):
-        return gzip.open(path, mode)
-    else:
-        return open(path, mode)
+    return gzip.open(path, mode) if path.endswith(".gz") else open(path, mode)
 
 
 def read_tsv(file, strip=True):
@@ -127,7 +124,7 @@ def generate_cdump(data_file, date=None):
     # processing a subset of the lines in data_file.
     log(f"generate_cdump({data_file}, {date}) reading")
     max_lines = 1_000_000 if os.getenv("OLDUMP_TESTING") else 0  # 0 means unlimited.
-    filter = date and (lambda doc: doc["last_modified"]["value"] < date + "Z")
+    filter = date and (lambda doc: doc["last_modified"]["value"] < f"{date}Z")
     print_dump(read_data_file(data_file, max_lines), filter=filter)
 
 
@@ -179,8 +176,7 @@ def generate_dump(cdump_file=None):
     def process(data):
         revision = lambda cols: int(cols[2])  # noqa: E731
         for key, rows in itertools.groupby(data, key=lambda cols: cols[1]):
-            row = max(rows, key=revision)
-            yield row
+            yield max(rows, key=revision)
 
     start_time = datetime.now()
     tjoin = "\t".join
@@ -247,20 +243,17 @@ def make_index(dump_file):
         data = json.loads(json_data)
         if type in ("/type/edition", "/type/work"):
             title = data.get("title", "untitled")
-            path = key + "/" + urlsafe(title)
+            path = f"{key}/{urlsafe(title)}"
         elif type in ("/type/author", "/type/list"):
             title = data.get("name", "unnamed")
-            path = key + "/" + urlsafe(title)
+            path = f"{key}/{urlsafe(title)}"
         else:
             title = data.get("title", key)
             path = key
 
         title = title.replace("\t", " ")
 
-        if "created" in data:
-            created = data["created"]["value"]
-        else:
-            created = "-"
+        created = data["created"]["value"] if "created" in data else "-"
         print("\t".join([web.safestr(path), web.safestr(title), created, timestamp]))
     minutes = (datetime.now() - start_time).seconds // 60
     log(f"make_index() processed {i:,} records in {minutes:,} minutes.")
@@ -273,10 +266,14 @@ def _process_key(key):
         "/b/": "/books/",
         "/user/": "/people/",
     }
-    for old, new in mapping.items():
-        if key.startswith(old):
-            return new + key[len(old) :]
-    return key
+    return next(
+        (
+            new + key[len(old) :]
+            for old, new in mapping.items()
+            if key.startswith(old)
+        ),
+        key,
+    )
 
 
 def _process_data(data):
@@ -340,7 +337,7 @@ def main(cmd, args):
         else:
             args.append(a)
 
-    func = {
+    if func := {
         "cdump": generate_cdump,
         "dump": generate_dump,
         "idump": generate_idump,
@@ -349,8 +346,7 @@ def main(cmd, args):
         "index": make_index,
         "sitemaps": generate_sitemaps,
         "htmlindex": generate_html_index,
-    }.get(cmd)
-    if func:
+    }.get(cmd):
         func(*args, **kwargs)
     else:
         log(f"Unknown command: {cmd}")

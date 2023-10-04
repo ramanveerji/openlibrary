@@ -240,16 +240,12 @@ def get_cover_url(ed_or_solr: Edition | dict) -> str | None:
         cover = ed_or_solr.get_cover()
         return cover.url(size) if cover else None
 
-    # Solr edition
     elif ed_or_solr['key'].startswith('/books/'):
-        if ed_or_solr.get('cover_i'):
-            return (
-                get_coverstore_public_url()
-                + f'/b/id/{ed_or_solr["cover_i"]}-{size}.jpg'
-            )
-        else:
-            return None
-
+        return (
+            f'{get_coverstore_public_url()}/b/id/{ed_or_solr["cover_i"]}-{size}.jpg'
+            if ed_or_solr.get('cover_i')
+            else None
+        )
     # Solr document augmented with availability
     availability = ed_or_solr.get('availability', {}) or {}
 
@@ -304,14 +300,9 @@ def get_provider_order(prefer_ia=False) -> list[AbstractBookProvider]:
         for name in provider_overrides.split(','):
             if name == '*':
                 new_order += default_order
-            else:
-                provider = get_book_provider_by_name(name)
-                if not provider:
-                    # TODO: Show the user a warning somehow
-                    continue
+            elif provider := get_book_provider_by_name(name):
                 new_order.append(provider)
-        new_order = uniq(new_order + default_order)
-        if new_order:
+        if new_order := uniq(new_order + default_order):
             provider_order = new_order
 
     return provider_order

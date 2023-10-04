@@ -16,7 +16,7 @@ def all(**params):
 
 
 def url(**params):
-    logger.debug("Evaluate url '%s'" % web.ctx.path)
+    logger.debug(f"Evaluate url '{web.ctx.path}'")
     return bool(re.search(params["pattern"], web.ctx.path))
 
 

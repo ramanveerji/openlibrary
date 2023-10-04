@@ -75,7 +75,7 @@ class Borrow_Test(unittest.TestCase):
             conditions = ia_cta_btn and ia_cta_btn.text == ia_ctas[check_cta]['copy']
 
             if make_assert:
-                assert conditions, 'Unable to find %s button on page.' % check_cta
+                assert conditions, f'Unable to find {check_cta} button on page.'
             if not conditions:
                 return False
 
@@ -87,12 +87,12 @@ class Borrow_Test(unittest.TestCase):
         return True
 
     def ol_get_book_cta(self, olid, check_cta=None, make_assert=False, click=False):
-        olsession.goto('/books/%s' % olid)
+        olsession.goto(f'/books/{olid}')
         time.sleep(1)
 
         if check_cta:
             try:
-                ol_cta_btn = olsession.driver.find_element_by_id('%s_ebook' % check_cta)
+                ol_cta_btn = olsession.driver.find_element_by_id(f'{check_cta}_ebook')
             except:
                 if make_assert:
                     raise
@@ -113,7 +113,7 @@ class Borrow_Test(unittest.TestCase):
                 except:
                     pass
                 time.sleep(3)
-                olsession.goto('/books/%s' % olid)
+                olsession.goto(f'/books/{olid}')
             return ol_cta_btn
         return True
 
@@ -189,7 +189,7 @@ class Borrow_Test(unittest.TestCase):
         # go to /account/loans page and assert
         olsession.goto('/account/loans')
         link = olsession.driver.find_element_by_xpath(
-            '//a[@href="/books/%s"]' % OL_EDITION
+            f'//a[@href="/books/{OL_EDITION}"]'
         )
         assert link, 'Book not found in waiting list on loans page'
 

@@ -121,7 +121,7 @@ class Upgrader:
 
 def usage():
     print(file=sys.stderr)
-    print("USAGE: %s dbname" % sys.argv[0], file=sys.stderr)
+    print(f"USAGE: {sys.argv[0]} dbname", file=sys.stderr)
     print(file=sys.stderr)
 
 

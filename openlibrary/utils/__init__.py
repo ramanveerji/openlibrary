@@ -149,10 +149,7 @@ def find_olid_in_string(s: str, olid_suffix: str | None = None) -> str | None:
         return None
     olid = found.group(0).upper()
 
-    if olid_suffix and not olid.endswith(olid_suffix):
-        return None
-
-    return olid
+    return None if olid_suffix and not olid.endswith(olid_suffix) else olid
 
 
 def olid_to_key(olid: str) -> str:
@@ -166,15 +163,15 @@ def olid_to_key(olid: str) -> str:
     >>> olid_to_key("OL123L")
     '/lists/OL123L'
     """
-    typ = {
+    if typ := {
         'A': 'authors',
         'W': 'works',
         'M': 'books',
         'L': 'lists',
-    }[olid[-1]]
-    if not typ:
+    }[olid[-1]]:
+        return f"/{typ}/{olid}"
+    else:
         raise ValueError(f"Invalid olid: {olid}")
-    return f"/{typ}/{olid}"
 
 
 def extract_numeric_id_from_olid(olid):

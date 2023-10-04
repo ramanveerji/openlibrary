@@ -269,22 +269,22 @@ class TestUsernameUpdate:
 
         assert len(list(self.db.select("bookshelves_books", where=before_where))) == 2
         Bookshelves.update_username("@kilgore_trout", "@anonymous")
-        assert len(list(self.db.select("bookshelves_books", where=before_where))) == 0
+        assert not list(self.db.select("bookshelves_books", where=before_where))
         assert len(list(self.db.select("bookshelves_books", where=after_where))) == 2
 
         assert len(list(self.db.select("booknotes", where=before_where))) == 1
         Booknotes.update_username("@kilgore_trout", "@anonymous")
-        assert len(list(self.db.select("booknotes", where=before_where))) == 0
+        assert not list(self.db.select("booknotes", where=before_where))
         assert len(list(self.db.select("booknotes", where=after_where))) == 1
 
         assert len(list(self.db.select("ratings", where=before_where))) == 1
         Ratings.update_username("@kilgore_trout", "@anonymous")
-        assert len(list(self.db.select("ratings", where=before_where))) == 0
+        assert not list(self.db.select("ratings", where=before_where))
         assert len(list(self.db.select("ratings", where=after_where))) == 1
 
         assert len(list(self.db.select("observations", where=before_where))) == 1
         Observations.update_username("@kilgore_trout", "@anonymous")
-        assert len(list(self.db.select("observations", where=before_where))) == 0
+        assert not list(self.db.select("observations", where=before_where))
         assert len(list(self.db.select("observations", where=after_where))) == 1
 
         results = self.db.select(
@@ -296,7 +296,7 @@ class TestUsernameUpdate:
         results = self.db.select(
             "community_edits_queue", where={"submitter": "@kilgore_trout"}
         )
-        assert len(list(results)) == 0
+        assert not list(results)
 
         results = self.db.select(
             "community_edits_queue", where={"submitter": "@anonymous"}
@@ -439,7 +439,7 @@ class TestCheckIns:
         assert len(list(self.db.select('bookshelves_events', where={"id": 1}))) == 1
         BookshelvesEvents.delete_by_id(1)
         assert len(list(self.db.select('bookshelves_events'))) == 5
-        assert len(list(self.db.select('bookshelves_events', where={"id": 1}))) == 0
+        assert not list(self.db.select('bookshelves_events', where={"id": 1}))
 
     def test_delete_by_username(self):
         assert len(list(self.db.select('bookshelves_events'))) == 6
@@ -455,15 +455,10 @@ class TestCheckIns:
         )
         BookshelvesEvents.delete_by_username('@kilgore_trout')
         assert len(list(self.db.select('bookshelves_events'))) == 3
-        assert (
-            len(
-                list(
-                    self.db.select(
-                        'bookshelves_events', where={"username": "@kilgore_trout"}
-                    )
-                )
+        assert not list(
+            self.db.select(
+                'bookshelves_events', where={"username": "@kilgore_trout"}
             )
-            == 0
         )
 
     def test_get_latest_event_date(self):
@@ -614,11 +609,6 @@ class TestYearlyReadingGoals:
             == 2
         )
         YearlyReadingGoals.delete_by_username('@billy_pilgrim')
-        assert (
-            len(
-                list(
-                    self.db.select(self.TABLENAME, where={'username': '@billy_pilgrim'})
-                )
-            )
-            == 0
+        assert not list(
+            self.db.select(self.TABLENAME, where={'username': '@billy_pilgrim'})
         )

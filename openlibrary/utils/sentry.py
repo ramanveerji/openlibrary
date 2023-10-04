@@ -22,9 +22,7 @@ def header_name_from_env(env_name: str) -> str:
     >>> header_name_from_env('CONTENT_LENGTH')
     'content-length'
     """
-    header_name = env_name
-    if env_name.startswith('HTTP_'):
-        header_name = env_name[5:]
+    header_name = env_name[5:] if env_name.startswith('HTTP_') else env_name
     return header_name.lower().replace('_', '-')
 
 
@@ -118,10 +116,7 @@ class SentryProcessor:
 
             cls, args = find_page()
             if cls:
-                if hasattr(cls, 'path'):
-                    result.route = cls.path
-                else:
-                    result.route = web.ctx.path
+                result.route = cls.path if hasattr(cls, 'path') else web.ctx.path
             elif type_page := find_type():
                 result.route = type_page[0]
 

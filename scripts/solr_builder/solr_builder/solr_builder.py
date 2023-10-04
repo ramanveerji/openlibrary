@@ -31,8 +31,7 @@ def config_section_to_dict(config_file: str, section: str) -> dict:
     """
     config = ConfigParser()
     config.read(config_file)
-    result = {key: config.get(section, key) for key in config.options(section)}
-    return result
+    return {key: config.get(section, key) for key in config.options(section)}
 
 
 def safeget(func):
@@ -45,9 +44,7 @@ def safeget(func):
     """
     try:
         return func()
-    except KeyError:
-        return None
-    except IndexError:
+    except (KeyError, IndexError):
         return None
 
 
@@ -101,11 +98,11 @@ class LocalPostgresDataProvider(DataProvider):
         cur.execute(query)
 
         while True:
-            rows = cur.fetchmany(size)
-            if not rows:
-                break
-            yield from rows
+            if rows := cur.fetchmany(size):
+                yield from rows
 
+            else:
+                break
         cur.close()
 
     def query_batched(
@@ -124,21 +121,20 @@ class LocalPostgresDataProvider(DataProvider):
         """
         # Not sure if this name needs to be unique
         cursor_name = (
-            cursor_name or 'solr_builder_server_side_cursor_' + uuid.uuid4().hex
+            cursor_name or f'solr_builder_server_side_cursor_{uuid.uuid4().hex}'
         )
         cur = self._conn.cursor(name=cursor_name)
         cur.itersize = size
         cur.execute(query)
 
         while True:
-            rows = cur.fetchmany(size)
-            if not rows:
-                break
-            else:
+            if rows := cur.fetchmany(size):
                 if cache_json:
                     self.cache.update({row[0]: row[1] for row in rows})
                 yield rows
 
+            else:
+                break
         cur.close()
 
     def cache_edition_works(self, lo_key, hi_key):
@@ -301,8 +297,7 @@ class LocalPostgresDataProvider(DataProvider):
         """
             % key
         )
-        row = next(self.query_iter(q))
-        if row:
+        if row := next(self.query_iter(q)):
             return row[0]
 
     def clear_cache(self):
@@ -343,24 +338,21 @@ def build_job_query(
     type = {"works": "work", "orphans": "edition", "authors": "author"}[job]
 
     q_select = """SELECT "Key", "JSON" FROM test"""
-    q_where = """WHERE "Type" = '/type/%s'""" % type
+    q_where = f"""WHERE "Type" = '/type/{type}'"""
     q_order = """ORDER BY "Key" """
-    q_offset = ""
     q_limit = ""
 
-    if offset:
-        q_offset = """OFFSET %d""" % offset
-
+    q_offset = """OFFSET %d""" % offset if offset else ""
     if limit:
         q_limit = """LIMIT %d""" % limit
 
     if last_modified:
-        q_where += """ AND "LastModified" >= '%s'""" % last_modified
+        q_where += f""" AND "LastModified" >= '{last_modified}'"""
         q_order = ""
         q_limit = ""
 
     if start_at:
-        q_where += """ AND "Key" >= '%s'""" % start_at
+        q_where += f""" AND "Key" >= '{start_at}'"""
 
     if job == 'orphans':
         q_where += """ AND "JSON" -> 'works' -> 0 ->> 'key' IS NULL"""
@@ -424,6 +416,8 @@ async def main(
             'next',
         ],
     )
+
+
 
     class PLog:
         def __init__(self, filename):
@@ -491,13 +485,12 @@ async def main(
                 return val
             if k == 'percent':
                 return '%.2f%%' % (100 * val)
-            if k in ['elapsed', 'q_1', 'q_auth', 'q_ia']:
+            if k in {'elapsed', 'q_1', 'q_auth', 'q_ia'}:
                 return '%.2fs' % val
             if isinstance(val, float):
                 return '%.2f' % val
-            if k == 'next':
-                return val.split('/')[-1]
-            return str(val)
+            return val.split('/')[-1] if k == 'next' else str(val)
+
 
     plog = PLog(progress)
 
@@ -506,8 +499,7 @@ async def main(
         # Check to see where we should be starting from
         if cmd == 'fetch-end':
             next_start_query = build_job_query(job, start_at, limit, last_modified, 1)
-            next_start_results = db.query_all(next_start_query)
-            if next_start_results:
+            if next_start_results := db.query_all(next_start_query):
                 print(next_start_results[0][0])
             return
 
@@ -531,7 +523,7 @@ async def main(
                 await f.write('Calculating total... ')
 
         start = time.time()
-        q_count = """SELECT COUNT(*) FROM(%s) AS foo""" % q
+        q_count = f"""SELECT COUNT(*) FROM({q}) AS foo"""
         count = db.query_all(q_count)[0][0]
         end = time.time()
 
@@ -603,11 +595,6 @@ async def main(
                         q_auth=plog.last_entry.q_auth + authors_time,
                         cached=len(db.cache) + len(db2.cache),
                     )
-                elif job == "authors":
-                    # Nothing to cache; update_work.py queries solr directly for each
-                    # other, and provides no way to cache.
-                    pass
-
                 # Store in main cache
                 db.cache.update(db2.cache)
                 db.ia_cache.update(db2.ia_cache)

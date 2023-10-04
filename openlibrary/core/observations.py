@@ -555,15 +555,14 @@ def _sort_values(order_list, values_list):
     ordered_values = []
 
     for id in order_list:
-        value = next(
+        if value := next(
             (
                 v['name']
                 for v in values_list
                 if v['id'] == id and not v.get('deleted', False)
             ),
             None,
-        )
-        if value:
+        ):
             ordered_values.append(value)
 
     return ordered_values
@@ -595,16 +594,17 @@ def convert_observation_ids(id_dict):
     return: Dictionary of type and value strings
     """
     types_and_values = _get_all_types_and_values()
-    conversion_results = {}
-
-    for k in id_dict:
-        if not types_and_values[str(k)].get('deleted', False):
-            conversion_results[types_and_values[str(k)]['type']] = [
-                types_and_values[str(k)]['values'][str(i)]['name']
-                for i in id_dict[k]
-                if not types_and_values[str(k)]['values'][str(i)].get('deleted', False)
-            ]
-
+    conversion_results = {
+        types_and_values[str(k)]['type']: [
+            types_and_values[str(k)]['values'][str(i)]['name']
+            for i in id_dict[k]
+            if not types_and_values[str(k)]['values'][str(i)].get(
+                'deleted', False
+            )
+        ]
+        for k in id_dict
+        if not types_and_values[str(k)].get('deleted', False)
+    }
     # Remove types with no values (all values of type were marked 'deleted'):
     return {k: v for (k, v) in conversion_results.items() if len(v)}
 
@@ -618,19 +618,20 @@ def _get_all_types_and_values():
     dictionary are the id numbers.
     return: A dictionary of observation id to string value mappings.
     """
-    types_and_values = {}
-
-    for o in OBSERVATIONS['observations']:
-        types_and_values[str(o['id'])] = {
+    return {
+        str(o['id']): {
             'type': o['label'],
             'deleted': o.get('deleted', False),
             'values': {
-                str(v['id']): {'name': v['name'], 'deleted': v.get('deleted', False)}
+                str(v['id']): {
+                    'name': v['name'],
+                    'deleted': v.get('deleted', False),
+                }
                 for v in o['values']
             },
         }
-
-    return types_and_values
+        for o in OBSERVATIONS['observations']
+    }
 
 
 @public
@@ -674,11 +675,11 @@ def get_observation_metrics(work_olid):
     work_id = extract_numeric_id_from_olid(work_olid)
     total_respondents = Observations.total_unique_respondents(work_id)
 
-    metrics = {}
-    metrics['work_id'] = work_id
-    metrics['total_respondents'] = total_respondents
-    metrics['observations'] = []
-
+    metrics = {
+        'work_id': work_id,
+        'total_respondents': total_respondents,
+        'observations': [],
+    }
     if total_respondents > 0:
         respondents_per_type_dict = Observations.count_unique_respondents_by_type(
             work_id
@@ -987,7 +988,7 @@ class Observations(db.CommonExtras):
 
         return list(oldb.query(query, vars=data))
 
-    def get_multi_choice(type):
+    def get_multi_choice(self):
         """Searches for the given type in the observations object, and
         returns the type's 'multi_choice' value.
 
@@ -995,7 +996,7 @@ class Observations(db.CommonExtras):
 
         """
         for o in OBSERVATIONS['observations']:
-            if o['label'] == type:
+            if o['label'] == self:
                 return o['multi_choice']
 
     @classmethod

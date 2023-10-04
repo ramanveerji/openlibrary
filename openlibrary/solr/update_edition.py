@@ -115,11 +115,10 @@ class EditionSolrBuilder:
 
     @property
     def publish_year(self) -> int | None:
-        if self.publish_date:
-            m = re_year.search(self.publish_date)
-            return int(m.group(1)) if m else None
-        else:
+        if not self.publish_date:
             return None
+        m = re_year.search(self.publish_date)
+        return int(m.group(1)) if m else None
 
     @property
     def ia(self) -> str | None:
@@ -134,10 +133,7 @@ class EditionSolrBuilder:
 
     @property
     def ia_box_id(self) -> list[str]:
-        if self.ia_metadata:
-            return list(self.ia_metadata.get('boxid') or [])
-        else:
-            return []
+        return list(self.ia_metadata.get('boxid') or []) if self.ia_metadata else []
 
     @property
     def identifiers(self) -> dict:

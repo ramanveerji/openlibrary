@@ -34,19 +34,19 @@ def test_write_image(prefix, path, image_dir):
     def _exists(filename):
         return exists(coverlib.find_image_path(filename))
 
-    assert _exists(prefix + '.jpg')
-    assert _exists(prefix + '-S.jpg')
-    assert _exists(prefix + '-M.jpg')
-    assert _exists(prefix + '-L.jpg')
+    assert _exists(f'{prefix}.jpg')
+    assert _exists(f'{prefix}-S.jpg')
+    assert _exists(f'{prefix}-M.jpg')
+    assert _exists(f'{prefix}-L.jpg')
 
-    assert open(coverlib.find_image_path(prefix + '.jpg'), 'rb').read() == data
+    assert open(coverlib.find_image_path(f'{prefix}.jpg'), 'rb').read() == data
 
 
 def test_bad_image(image_dir):
-    prefix = config.data_root + '/bad'
+    prefix = f'{config.data_root}/bad'
     assert coverlib.write_image(b'', prefix) is None
 
-    prefix = config.data_root + '/bad'
+    prefix = f'{config.data_root}/bad'
     assert coverlib.write_image(b'not an image', prefix) is None
 
 
@@ -70,12 +70,15 @@ def test_resize_image_aspect_ratio():
 
 
 def test_serve_file(image_dir):
-    path = static_dir + "/logos/logo-en.png"
+    path = f"{static_dir}/logos/logo-en.png"
 
     assert coverlib.read_file('/dev/null') == b''
     assert coverlib.read_file(path) == open(path, "rb").read()
 
-    assert coverlib.read_file(path + ":10:20") == open(path, "rb").read()[10 : 10 + 20]
+    assert (
+        coverlib.read_file(f"{path}:10:20")
+        == open(path, "rb").read()[10 : 10 + 20]
+    )
 
 
 def test_server_image(image_dir):
@@ -130,10 +133,13 @@ def test_server_image(image_dir):
 
 
 def test_image_path(image_dir):
-    assert coverlib.find_image_path('a.jpg') == config.data_root + '/localdisk/a.jpg'
+    assert (
+        coverlib.find_image_path('a.jpg')
+        == f'{config.data_root}/localdisk/a.jpg'
+    )
     assert (
         coverlib.find_image_path('covers_0000_00.tar:1234:10')
-        == config.data_root + '/items/covers_0000/covers_0000_00.tar:1234:10'
+        == f'{config.data_root}/items/covers_0000/covers_0000_00.tar:1234:10'
     )
 
 

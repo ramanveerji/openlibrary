@@ -31,18 +31,14 @@ def get_subject(key):
 class ListMixin:
     def _get_rawseeds(self):
         def process(seed):
-            if isinstance(seed, str):
-                return seed
-            else:
-                return seed.key
+            return seed if isinstance(seed, str) else seed.key
 
         return [process(seed) for seed in self.seeds]
 
     @cached_property
     def last_update(self):
         last_updates = [seed.last_update for seed in self.get_seeds()]
-        last_updates = [x for x in last_updates if x]
-        if last_updates:
+        if last_updates := [x for x in last_updates if x]:
             return max(last_updates)
         else:
             return None
@@ -111,9 +107,9 @@ class ListMixin:
 
         def get_query_term(seed):
             if seed.type.key == "/type/work":
-                return "key:%s" % seed.key.split("/")[-1]
+                return f'key:{seed.key.split("/")[-1]}'
             if seed.type.key == "/type/author":
-                return "author_key:%s" % seed.key.split("/")[-1]
+                return f'author_key:{seed.key.split("/")[-1]}'
 
         query_terms = [get_query_term(seed) for seed in self.seeds]
         query_terms = [q for q in query_terms if q]  # drop Nones
@@ -136,7 +132,7 @@ class ListMixin:
             if 'edition_key' not in doc:
                 continue
             for k in doc['edition_key']:
-                yield "/books/" + k
+                yield f"/books/{k}"
 
     def get_export_list(self) -> dict[str, list]:
         """Returns all the editions, works and authors of this list in arbitrary order.
@@ -152,10 +148,14 @@ class ListMixin:
             seed.key for seed in self.seeds if seed and seed.type.key == '/type/edition'  # type: ignore[attr-defined]
         }
         work_keys = {
-            "/works/%s" % seed.key.split("/")[-1] for seed in self.seeds if seed and seed.type.key == '/type/work'  # type: ignore[attr-defined]
+            f'/works/{seed.key.split("/")[-1]}'
+            for seed in self.seeds
+            if seed and seed.type.key == '/type/work'
         }
         author_keys = {
-            "/authors/%s" % seed.key.split("/")[-1] for seed in self.seeds if seed and seed.type.key == '/type/author'  # type: ignore[attr-defined]
+            f'/authors/{seed.key.split("/")[-1]}'
+            for seed in self.seeds
+            if seed and seed.type.key == '/type/author'
         }
 
         # Create the return dictionary
@@ -238,15 +238,12 @@ class ListMixin:
 
         def get_subject_prefix(facet_name):
             name = facet_name.replace("_facet", "")
-            if name == 'subject':
-                return ''
-            else:
-                return name + ":"
+            return '' if name == 'subject' else f"{name}:"
 
         def process_subject(facet_name, title, count):
             prefix = get_subject_prefix(facet_name)
             key = prefix + title.lower().replace(" ", "_")
-            url = "/subjects/" + key
+            url = f"/subjects/{key}"
             return web.storage(
                 {"title": title, "name": title, "count": count, "key": key, "url": url}
             )
@@ -304,13 +301,10 @@ class ListMixin:
         return seed in self._get_rawseeds()
 
     # cache the default_cover_id for 60 seconds
-    @cache.memoize(
-        "memcache", key=lambda self: ("d" + self.key, "default-cover-id"), expires=60
-    )
+    @cache.memoize("memcache", key=lambda self: (f"d{self.key}", "default-cover-id"), expires=60)
     def _get_default_cover_id(self):
         for s in self.get_seeds():
-            cover = s.get_cover()
-            if cover:
+            if cover := s.get_cover():
                 return cover.id
 
     def get_default_cover(self):
@@ -395,17 +389,16 @@ class Seed:
     def url(self):
         if self.document:
             return self.document.url()
+        if self.key.startswith("subject:"):
+            return "/subjects/" + web.lstrips(self.key, "subject:")
         else:
-            if self.key.startswith("subject:"):
-                return "/subjects/" + web.lstrips(self.key, "subject:")
-            else:
-                return "/subjects/" + self.key
+            return f"/subjects/{self.key}"
 
     def get_subject_url(self, subject):
         if subject.startswith("subject:"):
             return "/subjects/" + web.lstrips(subject, "subject:")
         else:
-            return "/subjects/" + subject
+            return f"/subjects/{subject}"
 
     def get_cover(self):
         if self.type in ['work', 'edition']:
@@ -422,13 +415,8 @@ class Seed:
         return self.document.get('last_modified')
 
     def dict(self):
-        if self.type == "subject":
-            url = self.url
-            full_url = self.url
-        else:
-            url = self.key
-            full_url = self.url
-
+        url = self.url if self.type == "subject" else self.key
+        full_url = self.url
         d = {
             "url": url,
             "full_url": full_url,

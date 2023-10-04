@@ -50,7 +50,7 @@ class ol_dump_latest(delegate.page):
             raise web.notfound()
 
         item = items[-1]
-        filename = item.replace("dump", "dump" + prefix) + ".txt.gz"
+        filename = item.replace("dump", f"dump{prefix}") + ".txt.gz"
         raise web.found(download_url(item, filename))
 
 
@@ -63,30 +63,29 @@ class ol_cdump_latest(delegate.page):
             raise web.notfound()
 
         item = items[-1]
-        raise web.found(download_url(item, item + ".txt.gz"))
+        raise web.found(download_url(item, f"{item}.txt.gz"))
 
 
 class ol_dumps(delegate.page):
     path = rf"/data/ol_dump({'|'.join(DUMP_PREFIXES)})_(\d\d\d\d-\d\d-\d\d).txt.gz"
 
     def GET(self, prefix, date):
-        item = "ol_dump_" + date
+        item = f"ol_dump_{date}"
         if item not in get_ol_dumps():
             raise web.notfound()
-        else:
-            filename = "ol_dump" + prefix + "_" + date + ".txt.gz"
-            raise web.found(download_url(item, filename))
+        filename = f"ol_dump{prefix}_{date}.txt.gz"
+        raise web.found(download_url(item, filename))
 
 
 class ol_cdumps(delegate.page):
     path = r"/data/ol_cdump_(\d\d\d\d-\d\d-\d\d).txt.gz"
 
     def GET(self, date):
-        item = "ol_cdump_" + date
+        item = f"ol_cdump_{date}"
         if item not in get_ol_dumps():
             raise web.notfound()
         else:
-            raise web.found(download_url(item, item + ".txt.gz"))
+            raise web.found(download_url(item, f"{item}.txt.gz"))
 
 
 def setup():

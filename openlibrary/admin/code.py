@@ -23,7 +23,7 @@ class static(app.page):  # type: ignore[name-defined]
     path = "(/(?:images|js|css)/.*)"
 
     def GET(self, path):
-        raise web.seeother("/static/upstream" + path)
+        raise web.seeother(f"/static/upstream{path}")
 
 
 def setup():

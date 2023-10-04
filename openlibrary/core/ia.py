@@ -35,7 +35,7 @@ def get_api_response(url: str, params: dict | None = None) -> dict:
         else:
             logger.info(f'{r.status_code} response received from {url}')
     except Exception as e:
-        logger.exception('Exception occurred accessing %s.' % url)
+        logger.exception(f'Exception occurred accessing {url}.')
     stats.end()
     return api_response
 
@@ -50,7 +50,7 @@ def get_metadata_direct(
     """
     url = f'{IA_BASE_URL}/metadata/{web.safestr(itemid.strip())}'
     params = {}
-    if cache is False:
+    if not cache:
         params['dontcache'] = 1
     full_json = get_api_response(url, params)
     return extract_item_metadata(full_json) if only_metadata else full_json
@@ -117,14 +117,14 @@ def edition_from_item_metadata(itemid, metadata):
 def get_cover_url(item_id):
     """Gets the URL of the archive.org item's title (or cover) page."""
     base_url = f'{IA_BASE_URL}/download/{item_id}/page/'
-    title_response = requests.head(base_url + 'title.jpg', allow_redirects=True)
+    title_response = requests.head(f'{base_url}title.jpg', allow_redirects=True)
     if title_response.status_code == 404:
-        return base_url + 'cover.jpg'
-    return base_url + 'title.jpg'
+        return f'{base_url}cover.jpg'
+    return f'{base_url}title.jpg'
 
 
 def get_item_manifest(item_id, item_server, item_path):
-    url = 'https://%s/BookReader/BookReaderJSON.php' % item_server
+    url = f'https://{item_server}/BookReader/BookReaderJSON.php'
     url += f'?itemPath={item_path}&itemId={item_id}&server={item_server}'
     return get_api_response(url)
 
@@ -148,7 +148,7 @@ class ItemEdition(dict):
 
         self.update(
             {
-                "key": "/books/ia:" + itemid,
+                "key": f"/books/ia:{itemid}",
                 "type": {"key": "/type/edition"},
                 "title": itemid,
                 "ocaid": itemid,
@@ -180,12 +180,11 @@ class ItemEdition(dict):
             return "bad-repub-state"
 
         if "imagecount" not in metadata:
-            if not (item_server and item_path):
+            if not item_server or not item_path:
                 return "no-imagecount"
-            else:
-                manifest = get_item_manifest(itemid, item_server, item_path)
-                if not manifest.get('numPages'):
-                    return "no-imagecount"
+            manifest = get_item_manifest(itemid, item_server, item_path)
+            if not manifest.get('numPages'):
+                return "no-imagecount"
 
         # items start with these prefixes are not books
         ignore_prefixes = config.get("ia_ignore_prefixes", [])
@@ -242,10 +241,7 @@ class ItemEdition(dict):
             if isinstance(value, list):
                 value = [v for v in value if v != {}]
                 if value:
-                    if isinstance(value[0], str):
-                        value = "\n\n".join(value)
-                    else:
-                        value = value[0]
+                    value = "\n\n".join(value) if isinstance(value[0], str) else value[0]
                 else:
                     # empty list. Ignore.
                     return
@@ -356,7 +352,7 @@ def get_candidate_ocaids(
         'c3': '%litigationworks%',
     }
 
-    _valid_repub_states_sql = "(%s)" % (', '.join(str(i) for i in repub_states))
+    _valid_repub_states_sql = f"({', '.join(str(i) for i in repub_states)})"
     q = (
         "SELECT "
         + ("count(identifier)" if count else "identifier")

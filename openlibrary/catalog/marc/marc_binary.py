@@ -103,12 +103,11 @@ class MarcBinary(MarcBase):
             # directory is the wrong size
             # sometimes the leader includes some utf-8 by mistake
             directory = data[: self.directory_end].decode('utf-8')[24:]
-            if len(directory) % 12 != 0:
-                raise BadMARC("MARC directory invalid length")
-        iter_dir = (
+        if len(directory) % 12 != 0:
+            raise BadMARC("MARC directory invalid length")
+        return (
             directory[i * 12 : (i + 1) * 12] for i in range(len(directory) // 12)
         )
-        return iter_dir
 
     def leader(self) -> str:
         return self.data[:24].decode('utf-8', errors='replace')
@@ -127,11 +126,7 @@ class MarcBinary(MarcBase):
         :rtype: generator
         :return: Generator of (tag (str), field (str if 00x, otherwise BinaryDataField))
         """
-        if want is None:
-            fields = self.get_all_tag_lines()
-        else:
-            fields = self.get_tag_lines(want)
-
+        fields = self.get_all_tag_lines() if want is None else self.get_tag_lines(want)
         for tag, line in handle_wrapped_lines(fields):
             if want and tag not in want:
                 continue
@@ -181,6 +176,6 @@ class MarcBinary(MarcBase):
             pass
         tag_line = data[offset + 1 : offset + length + 1]
         # marc_western_washington_univ/wwu_bibs.mrc_revrev.mrc:636441290:1277
-        if line[0:2] != '00' and tag_line[1:8] == b'{llig}\x1f':
+        if line[:2] != '00' and tag_line[1:8] == b'{llig}\x1f':
             tag_line = tag_line[0] + '\uFE20' + tag_line[7:]
         return tag_line

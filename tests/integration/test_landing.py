@@ -19,26 +19,26 @@ class TestLanding:
         browser.quit()
 
     def test_categories_carousel(self, browser):
-        url = self.host + '/'
+        url = f'{self.host}/'
         browser.visit(url)
         assert browser.is_element_present_by_css(".categoryCarousel")
 
     def test_popular_carousel(self, browser):
-        url = self.host + '/'
+        url = f'{self.host}/'
         browser.visit(url)
         assert browser.is_element_present_by_css("#CarouselPopular")
 
     def test_read_carousel(self, browser):
-        url = self.host + '/'
+        url = f'{self.host}/'
         browser.visit(url)
         assert browser.is_element_present_by_css("#read-carousel")
 
     def test_return_carousel(self, browser):
-        url = self.host + '/'
+        url = f'{self.host}/'
         browser.visit(url)
         assert browser.is_element_present_by_css("#returncart_carousel")
 
     def test_waitlist_carousel(self, browser):
-        url = self.host + '/'
+        url = f'{self.host}/'
         browser.visit(url)
         assert browser.is_element_present_by_css("#CarouselWaitlist")

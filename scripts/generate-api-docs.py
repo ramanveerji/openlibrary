@@ -45,9 +45,8 @@ def write(path, text):
         os.makedirs(dirname)
 
     print("writing", path)
-    f = open(path, "w")
-    f.write(text)
-    f.close()
+    with open(path, "w") as f:
+        f.write(text)
 
 
 def find_python_sources(dir):
@@ -90,7 +89,7 @@ def generate_docs(dir):
         dirname = os.path.dirname(path)
         if path.endswith("__init__.py"):
             submodules = [
-                web.lstrips(docpath(s), docpath(dirname) + "/")
+                web.lstrips(docpath(s), f"{docpath(dirname)}/")
                 for s in submodule_dict[dirname]
             ]
         else:
@@ -117,7 +116,7 @@ def generate_index():
     f.write(".. toctree::\n")
     f.write("   :maxdepth: 1\n")
     f.write("\n")
-    f.write("\n".join("   " + filename for filename in filenames))
+    f.write("\n".join(f"   {filename}" for filename in filenames))
 
 
 def main():

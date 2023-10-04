@@ -30,15 +30,15 @@ def setup():
 
     for p in old_plugins:
         logger.info("loading plugin %s", p)
-        modname = "openlibrary.plugins.%s.code" % p
-        path = "openlibrary/plugins/" + p
+        modname = f"openlibrary.plugins.{p}.code"
+        path = f"openlibrary/plugins/{p}"
         template.load_templates(path, lazy=True)
         macro.load_macros(path, lazy=True)
         i18n.load_strings(path)
         __import__(modname, globals(), locals(), ['plugins'])
 
     delegate.plugins += [
-        delegate._make_plugin_module('openlibrary.plugins.' + name)
+        delegate._make_plugin_module(f'openlibrary.plugins.{name}')
         for name in old_plugins
     ]
 
@@ -57,7 +57,7 @@ def setup_logging():
         if logconfig and os.path.exists(logconfig):
             logging.config.fileConfig(logconfig, disable_existing_loggers=False)
     except Exception as e:
-        print("Unable to set logging configuration:", str(e), file=sys.stderr)
+        print("Unable to set logging configuration:", e, file=sys.stderr)
         raise
 
 

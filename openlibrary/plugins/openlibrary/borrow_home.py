@@ -30,7 +30,7 @@ class borrow_json(delegate.page):
     encoding = "json"
 
     def GET(self):
-        raise web.seeother('/subjects/in_library.json' + web.ctx.query)
+        raise web.seeother(f'/subjects/in_library.json{web.ctx.query}')
 
 
 class read(delegate.page):
@@ -45,7 +45,7 @@ class read_json(delegate.page):
     encoding = "json"
 
     def GET(self):
-        web.seeother('/subjects/accessible_book.json' + web.ctx.query)
+        web.seeother(f'/subjects/accessible_book.json{web.ctx.query}')
 
 
 def on_loan_created_statsdb(loan):
@@ -58,9 +58,9 @@ def on_loan_created_statsdb(loan):
         "resource_type": loan['resource_type'],
         "t_start": t_start.isoformat(),
         "status": "active",
+        'library': "/libraries/internet_archive",
+        'geoip_country': None,
     }
-    d['library'] = "/libraries/internet_archive"
-    d['geoip_country'] = None  # we removed geoip
     statsdb.add_entry(key, d)
 
 

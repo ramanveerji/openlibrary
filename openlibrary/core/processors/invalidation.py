@@ -130,7 +130,7 @@ class InvalidationProcessor:
         keys = []
         for prefix in self.prefixes:
             q = {
-                "key~": prefix + "*",
+                "key~": f"{prefix}*",
                 "last_modified>": self.last_poll_time.isoformat(),
                 "limit": 1000,
             }

@@ -71,9 +71,8 @@ class Disk:
 
             try:
                 print("writing", path)
-                f = open(path, "w")
-                f.write(text)
-                f.close()
+                with open(path, "w") as f:
+                    f.write(text)
             except OSError:
                 print("failed", path)
 
@@ -83,10 +82,10 @@ class Disk:
                 path = path.replace(".tmpl", ".html")
                 write(path, doc['body'])
             elif doc['type']['key'] == '/type/macro':
-                path = path + ".html"
+                path = f"{path}.html"
                 write(path, doc['macro'])
             else:
-                path = path + ".json"
+                path = f"{path}.json"
                 write(path, json.dumps(doc, indent=2))
 
 
@@ -142,17 +141,14 @@ class KeyVersionPair(namedtuple('KeyVersionPair', 'key version')):
         :param str uri: either something like /works/OL1W, /books/OL1M?v=3, etc.
         """
 
-        if '?v=' in uri:
-            key, version = uri.split('?v=')
-        else:
-            key, version = uri, None
+        key, version = uri.split('?v=') if '?v=' in uri else (uri, None)
         return KeyVersionPair._make([key, version])
 
     def to_uri(self) -> str:
         """ """
         uri = self.key
         if self.version:
-            uri += '?v=' + self.version
+            uri += f'?v={self.version}'
         return uri
 
     def __str__(self):
@@ -297,7 +293,7 @@ def copy_list(src, dest, list_key, comment):
         return [x['key'] for x in marshal(src.query(q))]
 
     def get_list_seeds(list_key):
-        d = jsonget(list_key + "/seeds.json")
+        d = jsonget(f"{list_key}/seeds.json")
         return d['entries']  # [x['url'] for x in d['entries']]
 
     def add_seed(seed):
@@ -364,7 +360,7 @@ def main(
     )
 
     if isinstance(dest_ol, OpenLibrary):
-        section = "[%s]" % web.lstrips(dest, "http://").strip("/")
+        section = f'[{web.lstrips(dest, "http://").strip("/")}]'
         if section in read_lines(os.path.expanduser("~/.olrc")):
             dest_ol.autologin()
         else:

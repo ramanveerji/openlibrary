@@ -25,11 +25,7 @@ class ListAPI:
         headers = headers or {}
         """url open with cookie support."""
         if not method:
-            if data:
-                method = "POST"
-            else:
-                method = "GET"
-
+            method = "POST" if data else "GET"
         req = urllib.request.Request(self.server + path, data=data, headers=headers)
         req.get_method = lambda: method
         return self.opener.open(req)
@@ -43,20 +39,20 @@ class ListAPI:
         json_data = json.dumps(data)
         headers = {"content-type": "application/json"}
         response = self.urlopen(
-            "/people/" + self.username + "/lists", data=json_data, headers=headers
+            f"/people/{self.username}/lists", data=json_data, headers=headers
         )
         return json.loads(response.read())
 
     def get_lists(self):
-        data = self.urlopen("/people/" + self.username + "/lists.json").read()
+        data = self.urlopen(f"/people/{self.username}/lists.json").read()
         return json.loads(data)
 
     def get_list(self, key):
-        data = self.urlopen(key + ".json").read()
+        data = self.urlopen(f"{key}.json").read()
         return json.loads(data)
 
     def get_seeds(self, key):
-        data = self.urlopen(key + "/seeds.json").read()
+        data = self.urlopen(f"{key}/seeds.json").read()
         return json.loads(data)
 
     def update_seeds(self, key, additions, removals):
@@ -65,7 +61,7 @@ class ListAPI:
             "remove": removals,
         }
         json_data = json.dumps(data)
-        response = self.urlopen(key + "/seeds.json", json_data)
+        response = self.urlopen(f"{key}/seeds.json", json_data)
         return json.loads(response.read())
 
 

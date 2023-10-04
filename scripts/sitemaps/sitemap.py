@@ -83,13 +83,11 @@ def urlsafe(name: str) -> str:
     isn't a great way to import the methods from openlibrary as a
     package
     """
-    # unsafe chars according to RFC 2396
-    reserved = ";/?:@&=+$,"
     delims = '<>#%"'
     unwise = "{}|\\^[]`"
     space = ' \n\r'
 
-    unsafe = reserved + delims + unwise + space
+    unsafe = f";/?:@&=+$,{delims}{unwise}{space}"
     pattern = f"[{''.join(re.escape(c) for c in unsafe)}]+"
     safepath_re = re.compile(pattern)
     return safepath_re.sub('_', name).replace(' ', '-').strip('_')[:100]

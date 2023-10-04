@@ -95,10 +95,10 @@ def read_dnb(rec: MarcBase) -> dict[str, list[str]] | None:
 
 
 def read_issn(rec: MarcBase) -> dict[str, list[str]] | None:
-    fields = rec.get_fields('022')
-    if not fields:
+    if fields := rec.get_fields('022'):
+        return {'issn': [v for f in fields for v in f.get_subfield_values('a')]}
+    else:
         return None
-    return {'issn': [v for f in fields for v in f.get_subfield_values('a')]}
 
 
 def read_lccn(rec: MarcBase) -> list[str]:
@@ -112,9 +112,9 @@ def read_lccn(rec: MarcBase) -> list[str]:
             if not m:
                 continue
             lccn = m.group(1).strip()
-            # zero-pad any dashes so the final digit group has size = 6
-            lccn = lccn.replace('-', '0' * (7 - (len(lccn) - lccn.find('-'))))
-            if lccn:
+            if lccn := lccn.replace(
+                '-', '0' * (7 - (len(lccn) - lccn.find('-')))
+            ):
                 found.append(lccn)
     return found
 
@@ -133,8 +133,7 @@ def read_oclc(rec: MarcBase) -> list[str]:
     tag_003 = rec.get_control('003')
     if tag_001 and tag_003 and re_ocolc.match(tag_003):
         oclc = tag_001
-        m = re_ocn_or_ocm.match(oclc)
-        if m:
+        if m := re_ocn_or_ocm.match(oclc):
             oclc = m.group(1)
         if oclc.isdigit():
             found.append(oclc)
@@ -160,11 +159,7 @@ def read_lc_classification(rec: MarcBase) -> list[str]:
         contents = f.get_contents('ab')
         if 'b' in contents:
             b = ' '.join(contents['b'])
-            if 'a' in contents:
-                found += [f'{a} {b}' for a in contents['a']]
-            else:
-                found += [b]
-        # https://openlibrary.org/show-marc/marc_university_of_toronto/uoft.marc:671135731:596
+            found += [f'{a} {b}' for a in contents['a']] if 'a' in contents else [b]
         elif 'a' in contents:
             found += contents['a']
     return found
@@ -236,8 +231,8 @@ def read_title(rec: MarcBase) -> dict[str, Any]:
     if not title:
         subfields = fields[0].get_lower_subfield_values()
         title = title_from_list(list(subfields))
-        if not title:  # ia:scrapbooksofmoun03tupp
-            raise NoTitle('No title found from joining subfields.')
+    if not title:  # ia:scrapbooksofmoun03tupp
+        raise NoTitle('No title found from joining subfields.')
     if alternate:
         ret['title'] = title_from_list(list(alternate.get_subfield_values('a')))
         ret['other_titles'] = [title]
@@ -248,8 +243,7 @@ def read_title(rec: MarcBase) -> dict[str, Any]:
     if bnps:
         ret['subtitle'] = title_from_list(bnps, delim=' : ')
     elif alternate:
-        subtitle = alternate.get_subfield_values('bnps')
-        if subtitle:
+        if subtitle := alternate.get_subfield_values('bnps'):
             ret['subtitle'] = title_from_list(subtitle, delim=' : ')
     if 'subtitle' in ret and re_bracket_field.match(ret['subtitle']):
         # Remove entirely bracketed subtitles
@@ -261,8 +255,7 @@ def read_title(rec: MarcBase) -> dict[str, Any]:
     # Physical format
     if 'h' in contents:
         h = ' '.join(contents['h']).strip(' ')
-        m = re_bracket_field.match(h)
-        if m:
+        if m := re_bracket_field.match(h):
             h = m.group(1)
         assert h
         ret['physical_format'] = h
@@ -313,16 +306,14 @@ def read_languages(rec: MarcBase, lang_008: str | None = None) -> list[str]:
             code_source = ' '.join(f.get_subfield_values('2'))
             # TODO: What's the best way to handle these?
             raise MarcException("Non-MARC language code(s), source = ", code_source)
-            continue  # Skip anything which is using a non-MARC code source e.g. iso639-1
         for value in f.get_subfield_values('a'):
-            if len(value) % 3 == 0:
-                # Obsolete cataloging practice was to concatenate all language codes in a single subfield
-                for k in range(0, len(value), 3):
-                    code = value[k : k + 3].lower()
-                    if code != 'zxx' and code not in found:
-                        found.append(code)
-            else:
+            if len(value) % 3 != 0:
                 raise MarcException("Got non-multiple of three language code")
+            # Obsolete cataloging practice was to concatenate all language codes in a single subfield
+            for k in range(0, len(value), 3):
+                code = value[k : k + 3].lower()
+                if code != 'zxx' and code not in found:
+                    found.append(code)
     return [lang_map.get(code, code) for code in found]
 
 
@@ -471,8 +462,7 @@ def read_pagination(rec: MarcBase) -> dict[str, Any] | None:
         for x in pagination:
             num += [int(i) for i in re_int.findall(x.replace(',', ''))]
             num += [int(i) for i in re_int.findall(x)]
-        valid = [i for i in num if i < max_number_of_pages]
-        if valid:
+        if valid := [i for i in num if i < max_number_of_pages]:
             edition['number_of_pages'] = max(valid)
     return edition
 
@@ -497,8 +487,7 @@ def read_notes(rec: MarcBase) -> str:
         if tag in (505, 520):
             continue
         fields = rec.get_fields(str(tag))
-        for f in fields:
-            found.append(' '.join(f.get_lower_subfield_values()).strip())
+        found.extend(' '.join(f.get_lower_subfield_values()).strip() for f in fields)
     return '\n\n'.join(found)
 
 
@@ -514,13 +503,12 @@ def read_url(rec: MarcBase) -> list:
         contents = f.get_contents('uy3zx')
         if not contents.get('u'):
             continue
-        parts = (
+        if parts := (
             contents.get('y')
             or contents.get('3')
             or contents.get('z')
             or contents.get('x', ['External source'])
-        )
-        if parts:
+        ):
             title = parts[0].strip()
             found += [{'url': u.strip(), 'title': title} for u in contents['u']]
     return found
@@ -674,8 +662,7 @@ def read_edition(rec: MarcBase) -> dict[str, Any]:
         publish_country = f[15:18]
         if publish_country not in ('|||', '   ', '\x01\x01\x01', '???'):
             edition["publish_country"] = publish_country.strip()
-        languages = read_languages(rec, lang_008=f[35:38].lower())
-        if languages:
+        if languages := read_languages(rec, lang_008=f[35:38].lower()):
             edition['languages'] = languages
     elif handle_missing_008:
         update_edition(rec, edition, read_languages, 'languages')
@@ -687,13 +674,12 @@ def read_edition(rec: MarcBase) -> dict[str, Any]:
     try:
         edition.update(read_title(rec))
     except NoTitle:
-        if 'work_titles' in edition:
-            assert len(edition['work_titles']) == 1
-            edition['title'] = edition['work_titles'][0]
-            del edition['work_titles']
-        else:
+        if 'work_titles' not in edition:
             raise
 
+        assert len(edition['work_titles']) == 1
+        edition['title'] = edition['work_titles'][0]
+        del edition['work_titles']
     update_edition(rec, edition, read_lccn, 'lccn')
     update_edition(rec, edition, read_dnb, 'identifiers')
     update_edition(rec, edition, read_issn, 'identifiers')
@@ -715,7 +701,6 @@ def read_edition(rec: MarcBase) -> dict[str, Any]:
     edition.update(subjects_for_work(rec))
 
     for func in (read_publisher, read_isbn, read_pagination):
-        v = func(rec)
-        if v:
+        if v := func(rec):
             edition.update(v)
     return edition

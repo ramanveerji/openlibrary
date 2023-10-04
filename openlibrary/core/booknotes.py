@@ -168,10 +168,17 @@ class Booknotes(db.CommonExtras):
             "notes": notes,
             "edition_id": edition_id,
         }
-        records = cls.get_patron_booknotes(
+        if records := cls.get_patron_booknotes(
             username, work_id=work_id, edition_id=edition_id
-        )
-        if not records:
+        ):
+            return oldb.update(
+                'booknotes',
+                where="work_id=$work_id AND username=$username AND edition_id=$edition_id",
+                notes=notes,
+                edition_id=edition_id,
+                vars=data,
+            )
+        else:
             return oldb.insert(
                 'booknotes',
                 username=username,
@@ -179,13 +186,6 @@ class Booknotes(db.CommonExtras):
                 notes=notes,
                 edition_id=edition_id,
             )
-        return oldb.update(
-            'booknotes',
-            where="work_id=$work_id AND username=$username AND edition_id=$edition_id",
-            notes=notes,
-            edition_id=edition_id,
-            vars=data,
-        )
 
     @classmethod
     def remove(cls, username, work_id, edition_id=NULL_EDITION_VALUE):

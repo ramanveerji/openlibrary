@@ -13,7 +13,7 @@ class TestSearch:
         browser.quit()
 
     def test_search_inside(self, browser):
-        browser.visit(self.host + '/search/inside')
+        browser.visit(f'{self.host}/search/inside')
         browser.find_by_css(".searchInsideForm > input[name='q']").fill('black cat')
         browser.find_by_css(".searchInsideForm > [type='submit']").click()
         assert browser.is_text_present('Search Inside')
@@ -28,7 +28,7 @@ class TestSearch:
         assert browser.is_element_present_by_css('.searchInsideForm')
 
     def test_metadata_search(self, browser):
-        browser.visit(self.host + '/search')
+        browser.visit(f'{self.host}/search')
         browser.find_by_css(".siteSearch > input[name='q']").fill('remix')
         browser.find_by_css(".siteSearch > [type='submit']").click()
         assert browser.is_text_present('Search Results')

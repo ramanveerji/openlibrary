@@ -31,8 +31,7 @@ def add_entry(key, data, timestamp=None):
     t = timestamp.isoformat()
 
     db = get_db()
-    result = db.query("SELECT * FROM stats WHERE key=$key", vars=locals())
-    if result:
+    if result := db.query("SELECT * FROM stats WHERE key=$key", vars=locals()):
         logger.warning(
             "Failed to add stats entry with key %r. An entry is already present."
         )
@@ -41,8 +40,9 @@ def add_entry(key, data, timestamp=None):
 
 
 def get_entry(key):
-    result = get_db().query("SELECT * FROM stats WHERE key=$key", vars=locals())
-    if result:
+    if result := get_db().query(
+        "SELECT * FROM stats WHERE key=$key", vars=locals()
+    ):
         return result[0]
 
 
@@ -57,8 +57,7 @@ def update_entry(key, data, timestamp=None):
     t = timestamp.isoformat()
 
     db = get_db()
-    result = db.query("SELECT * FROM stats WHERE key=$key", vars=locals())
-    if result:
+    if result := db.query("SELECT * FROM stats WHERE key=$key", vars=locals()):
         db.update("stats", json=jsontext, updated=t, where="key=$key", vars=locals())
     else:
         logger.warning(

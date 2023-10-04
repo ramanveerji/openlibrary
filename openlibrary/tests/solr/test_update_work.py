@@ -397,8 +397,8 @@ class Test_build_data:
 
         for k in ['subject', 'person', 'place', 'time']:
             assert d[k] == ['a', "b c"]
-            assert d[k + '_facet'] == ['a', "b c"]
-            assert d[k + '_key'] == ['a', "b_c"]
+            assert d[f'{k}_facet'] == ['a', "b c"]
+            assert d[f'{k}_key'] == ['a', "b_c"]
 
     @pytest.mark.asyncio()
     async def test_author_info(self):

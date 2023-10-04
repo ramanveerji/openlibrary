@@ -328,10 +328,10 @@ def test_duplicate_ia_book(mock_site, add_languages, ia_writeback):
 class Test_From_MARC:
     def test_from_marc_author(self, mock_site, add_languages):
         ia = 'flatlandromanceo00abbouoft'
-        marc = MarcBinary(open_test_data(ia + '_meta.mrc').read())
+        marc = MarcBinary(open_test_data(f'{ia}_meta.mrc').read())
 
         rec = read_edition(marc)
-        rec['source_records'] = ['ia:' + ia]
+        rec['source_records'] = [f'ia:{ia}']
         reply = load(rec)
         assert reply['success'] is True
         assert reply['edition']['status'] == 'created'
@@ -353,10 +353,10 @@ class Test_From_MARC:
         ),
     )
     def test_from_marc(self, ia, mock_site, add_languages):
-        data = open_test_data(ia + '_meta.mrc').read()
+        data = open_test_data(f'{ia}_meta.mrc').read()
         assert len(data) == int(data[:5])
         rec = read_edition(MarcBinary(data))
-        rec['source_records'] = ['ia:' + ia]
+        rec['source_records'] = [f'ia:{ia}']
         reply = load(rec)
         assert reply['success'] is True
         assert reply['edition']['status'] == 'created'
@@ -368,9 +368,9 @@ class Test_From_MARC:
 
     def test_author_from_700(self, mock_site, add_languages):
         ia = 'sexuallytransmit00egen'
-        data = open_test_data(ia + '_meta.mrc').read()
+        data = open_test_data(f'{ia}_meta.mrc').read()
         rec = read_edition(MarcBinary(data))
-        rec['source_records'] = ['ia:' + ia]
+        rec['source_records'] = [f'ia:{ia}']
         reply = load(rec)
         assert reply['success'] is True
         # author from 700
@@ -384,7 +384,7 @@ class Test_From_MARC:
         src = 'v38.i37.records.utf8--16478504-1254'
         marc = MarcBinary(open_test_data(src).read())
         rec = read_edition(marc)
-        rec['source_records'] = ['marc:' + src]
+        rec['source_records'] = [f'marc:{src}']
         reply = load(rec)
         assert reply['success'] is True
         reply = load(rec)
@@ -394,32 +394,32 @@ class Test_From_MARC:
         src = 'v39.i28.records.utf8--5362776-1764'
         marc = MarcBinary(open_test_data(src).read())
         rec = read_edition(marc)
-        rec['source_records'] = ['marc:' + src]
+        rec['source_records'] = [f'marc:{src}']
         reply = load(rec)
         assert reply['success'] is True
         assert reply['edition']['status'] == 'modified'
 
     def test_missing_ocaid(self, mock_site, add_languages, ia_writeback):
         ia = 'descendantsofhug00cham'
-        src = ia + '_meta.mrc'
+        src = f'{ia}_meta.mrc'
         marc = MarcBinary(open_test_data(src).read())
         rec = read_edition(marc)
         rec['source_records'] = ['marc:testdata.mrc']
         reply = load(rec)
         assert reply['success'] is True
-        rec['source_records'] = ['ia:' + ia]
+        rec['source_records'] = [f'ia:{ia}']
         rec['ocaid'] = ia
         reply = load(rec)
         assert reply['success'] is True
         e = mock_site.get(reply['edition']['key'])
         assert e.ocaid == ia
-        assert 'ia:' + ia in e.source_records
+        assert f'ia:{ia}' in e.source_records
 
     def test_from_marc_fields(self, mock_site, add_languages):
         ia = 'isbn_9781419594069'
-        data = open_test_data(ia + '_meta.mrc').read()
+        data = open_test_data(f'{ia}_meta.mrc').read()
         rec = read_edition(MarcBinary(data))
-        rec['source_records'] = ['ia:' + ia]
+        rec['source_records'] = [f'ia:{ia}']
         reply = load(rec)
         assert reply['success'] is True
         # author from 100
@@ -542,7 +542,7 @@ def test_add_db_name():
 
     rec = {}
     add_db_name(rec)
-    assert rec == {}
+    assert not rec
 
     # Handle `None` authors values.
     rec = {'authors': None}
@@ -691,10 +691,10 @@ def test_extra_author(mock_site, add_languages):
     )
 
     ia = 'workshuberthowe00racegoog'
-    src = ia + '_meta.mrc'
+    src = f'{ia}_meta.mrc'
     marc = MarcBinary(open_test_data(src).read())
     rec = read_edition(marc)
-    rec['source_records'] = ['ia:' + ia]
+    rec['source_records'] = [f'ia:{ia}']
 
     reply = load(rec)
     assert reply['success'] is True
@@ -772,10 +772,10 @@ def test_missing_source_records(mock_site, add_languages):
     )
 
     ia = 'nurembergwarcrim1997marr'
-    src = ia + '_meta.mrc'
+    src = f'{ia}_meta.mrc'
     marc = MarcBinary(open_test_data(src).read())
     rec = read_edition(marc)
-    rec['source_records'] = ['ia:' + ia]
+    rec['source_records'] = [f'ia:{ia}']
 
     reply = load(rec)
     assert reply['success'] is True
@@ -834,7 +834,7 @@ def test_no_extra_author(mock_site, add_languages):
     src = 'v39.i34.records.utf8--186503-1413'
     marc = MarcBinary(open_test_data(src).read())
     rec = read_edition(marc)
-    rec['source_records'] = ['marc:' + src]
+    rec['source_records'] = [f'marc:{src}']
 
     reply = load(rec)
     assert reply['success'] is True
@@ -1398,7 +1398,11 @@ def setup_load_data(mock_site):
         'works': [{'key': '/works/OL1W'}],
     }
 
-    incoming_rec = {
+    mock_site.save(existing_author)
+    mock_site.save(existing_work)
+    mock_site.save(existing_edition)
+
+    return {
         'authors': [{'name': 'John Smith'}],
         'description': 'A really fun book.',
         'dewey_decimal_class': ['853.92'],
@@ -1414,12 +1418,6 @@ def setup_load_data(mock_site):
         'title': 'Originally A Promise Item',
         'translated_from': ['yid'],
     }
-
-    mock_site.save(existing_author)
-    mock_site.save(existing_work)
-    mock_site.save(existing_edition)
-
-    return incoming_rec
 
 
 class TestLoadDataWithARev1PromiseItem:

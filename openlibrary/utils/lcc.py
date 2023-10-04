@@ -184,18 +184,15 @@ def normalize_lcc_prefix(prefix: str) -> str | None:
     """
     if re.match(r'^[A-Z]+$', prefix, re.I):
         return prefix
+    if lcc_norm := short_lcc_to_sortable_lcc(prefix.rstrip('.')):
+        result = lcc_norm.rstrip('0')
+        if '.' in prefix and prefix.endswith('0'):
+            result += '0' * (len(prefix) - len(prefix.rstrip('0')))
+        elif result.endswith('-0000.'):
+            result = result.rstrip('0.')
+        return result.rstrip('.')
     else:
-        lcc_norm = short_lcc_to_sortable_lcc(prefix.rstrip('.'))
-        if lcc_norm:
-            result = lcc_norm.rstrip('0')
-            if '.' in prefix and prefix.endswith('0'):
-                zeros_to_add = len(prefix) - len(prefix.rstrip('0'))
-                result += '0' * zeros_to_add
-            elif result.endswith('-0000.'):
-                result = result.rstrip('0.')
-            return result.rstrip('.')
-        else:
-            return None
+        return None
 
 
 def normalize_lcc_range(start: str, end: str) -> list[str | None]:

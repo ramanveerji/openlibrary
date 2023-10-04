@@ -24,7 +24,7 @@ class AttributeList(dict):
         return " ".join(f'{k}="{web.websafe(v)}"' for k, v in self.items())
 
     def __repr__(self):
-        return '<attrs: %s>' % repr(str(self))
+        return f'<attrs: {repr(str(self))}>'
 
 
 class Input:
@@ -58,7 +58,7 @@ class Input:
         attrs['name'] = self.name
         attrs['value'] = self.value or ''
 
-        return '<input ' + str(attrs) + ' />'
+        return f'<input {str(attrs)} />'
 
     def validate(self, value):
         self.value = value
@@ -186,7 +186,6 @@ class Validator:
             return self.test(value)
         except:
             raise
-            return False
 
     def __repr__(self):
         return "<validator: %r >" % self.msg

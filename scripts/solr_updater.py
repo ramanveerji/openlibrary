@@ -44,7 +44,7 @@ def read_state_file(path, initial_state: str | None = None):
 
 
 def get_default_offset():
-    return datetime.date.today().isoformat() + ":0"
+    return f"{datetime.date.today().isoformat()}:0"
 
 
 class InfobaseLog:
@@ -53,7 +53,7 @@ class InfobaseLog:
         :param str hostname:
         :param str|None exclude: if specified, excludes records that include the string
         """
-        self.base_url = 'http://%s/openlibrary.org/log' % hostname
+        self.base_url = f'http://{hostname}/openlibrary.org/log'
         self.offset = get_default_offset()
         self.exclude = exclude
 
@@ -65,7 +65,7 @@ class InfobaseLog:
 
     def read_records(self, max_fetches=10):
         """Reads all the available log records from the server."""
-        for i in range(max_fetches):
+        for _ in range(max_fetches):
             url = f"{self.base_url}/{self.offset}?limit=100"
             logger.debug("Reading log from %s", url)
             try:
@@ -173,8 +173,7 @@ def parse_log(records, load_ia_scans: bool):
             data = rec.get('data', {}).get("data", {})
             key = data.get("_key", "")
             if data.get("type") == "ebook" and key.startswith("ebooks/books/"):
-                edition_key = data.get('book_key')
-                if edition_key:
+                if edition_key := data.get('book_key'):
                     yield edition_key
             elif (
                 load_ia_scans
@@ -183,23 +182,16 @@ def parse_log(records, load_ia_scans: bool):
             ):
                 identifier = data.get('identifier')
                 if identifier and is_allowed_itemid(identifier):
-                    yield "/books/ia:" + identifier
+                    yield f"/books/ia:{identifier}"
 
-            # Hack to force updating something from admin interface
-            # The admin interface writes the keys to update to a document named
-            # 'solr-force-update' in the store and whatever keys are written to that
-            # are picked by this script
             elif key == 'solr-force-update':
-                keys = data.get('keys')
-                yield from keys
-
+                yield from data.get('keys')
         elif action == 'store.delete':
             key = rec.get("data", {}).get("key")
             # An ia-scan key is deleted when that book is deleted/darked from IA.
             # Delete it from OL solr by updating that key
             if key.startswith("ia-scan/"):
-                ol_key = "/works/ia:" + key.split("/")[-1]
-                yield ol_key
+                yield "/works/ia:" + key.split("/")[-1]
 
 
 def is_allowed_itemid(identifier):
@@ -217,7 +209,7 @@ async def update_keys(keys):
 
     # FIXME: Some kind of hack introduced to work around DB connectivity issue
     global args
-    logger.debug("Args: %s" % str(args))
+    logger.debug(f"Args: {str(args)}")
     update_work.load_configs(args['ol_url'], args['ol_config'], 'default')
 
     keys = [

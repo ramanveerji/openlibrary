@@ -252,9 +252,9 @@ class merge_authors(delegate.page):
         return "merge-authors" in web.ctx.features or (user and user.is_admin())
 
     def filter_authors(self, keys):
-        docs = web.ctx.site.get_many(["/authors/" + k for k in keys])
+        docs = web.ctx.site.get_many([f"/authors/{k}" for k in keys])
         d = {doc.key: doc.type.key for doc in docs}
-        return [k for k in keys if d.get("/authors/" + k) == '/type/author']
+        return [k for k in keys if d.get(f"/authors/{k}") == '/type/author']
 
     def GET(self):
         i = web.input(key=[], mrid=None)

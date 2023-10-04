@@ -211,11 +211,7 @@ class readinglog_stats(app.view):
         for leaderboard in stats['leaderboard'].values():
             for item in leaderboard:
                 key = f"/works/OL{item['work_id']}W"
-                if key in solr_docs:
-                    item['work'] = solr_docs[key]
-                else:
-                    item['work'] = web.ctx.site.get(key)
-
+                item['work'] = solr_docs[key] if key in solr_docs else web.ctx.site.get(key)
         works = [
             item['work']
             for leaderboard in stats['leaderboard'].values()

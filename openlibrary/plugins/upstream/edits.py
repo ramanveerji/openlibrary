@@ -19,12 +19,11 @@ def process_merge_request(rtype, data):
     username = user['key'].split('/')[-1]
     # Request types can be: create-request, update-request
     if rtype == 'create-request':
-        resp = community_edits_queue.create_request(username, **data)
+        return community_edits_queue.create_request(username, **data)
     elif rtype == 'update-request':
-        resp = community_edits_queue.update_request(username, **data)
+        return community_edits_queue.update_request(username, **data)
     else:
-        resp = response(status='error', error='Unknown request type')
-    return resp
+        return response(status='error', error='Unknown request type')
 
 
 class community_edits_queue(delegate.page):
@@ -191,13 +190,12 @@ class community_edits_queue(delegate.page):
 
     @staticmethod
     def create_title(mr_type: int, olids: list[str]) -> str:
-        if mr_type == CommunityEditsQueue.TYPE['WORK_MERGE']:
-            for olid in olids:
+        for olid in olids:
+            if mr_type == CommunityEditsQueue.TYPE['WORK_MERGE']:
                 book = web.ctx.site.get(f'/works/{olid}')
                 if book and book.title:
                     return book.title
-        elif mr_type == CommunityEditsQueue.TYPE['AUTHOR_MERGE']:
-            for olid in olids:
+            elif mr_type == CommunityEditsQueue.TYPE['AUTHOR_MERGE']:
                 author = web.ctx.site.get(f'/authors/{olid}')
                 if author and author.name:
                     return author.name

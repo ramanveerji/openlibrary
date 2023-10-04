@@ -160,13 +160,13 @@ class recentchanges_view(delegate.page):
         path = self.get_change_url(change)
         if path != web.ctx.path:
             raise web.redirect(path)
-        else:
-            kind = "merge" if change.kind.startswith("merge-") else change.kind
-            tname = "recentchanges/" + kind + "/view"
-            if tname in render:
-                return render_template(tname, change)
-            else:
-                return render_template("recentchanges/default/view", change)
+        kind = "merge" if change.kind.startswith("merge-") else change.kind
+        tname = f"recentchanges/{kind}/view"
+        return (
+            render_template(tname, change)
+            if tname in render
+            else render_template("recentchanges/default/view", change)
+        )
 
     def render_json(self, change):
         return delegate.RawText(

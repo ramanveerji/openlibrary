@@ -59,8 +59,7 @@ def parse_meta_headers(edition_builder):
 
     re_meta = re.compile(r'HTTP_X_ARCHIVE_META(?:\d{2})?_(.*)')
     for k, v in web.ctx.env.items():
-        m = re_meta.match(k)
-        if m:
+        if m := re_meta.match(k):
             meta_key = m.group(1).lower()
             edition_builder.add(meta_key, v, restrict_keys=False)
 
@@ -83,8 +82,6 @@ def parse_data(data: bytes) -> tuple[dict | None, str | None]:
             edition_builder = import_opds.parse(root)
             format = 'opds'
         elif root.tag == '{http://www.loc.gov/MARC21/slim}record':
-            if root.tag == '{http://www.loc.gov/MARC21/slim}collection':
-                root = root[0]
             rec = MarcXml(root)
             edition = read_edition(rec)
             edition_builder = import_edition_builder.import_edition_builder(
@@ -172,7 +169,7 @@ def raise_non_book_marc(marc_record, **kwargs):
 
     # insider note: follows Archive.org's approach of
     # Item::isMARCXMLforMonograph() which excludes non-books
-    if not (marc_leaders[7] == 'm' and marc_leaders[6] == 'a'):
+    if marc_leaders[7] != 'm' or marc_leaders[6] != 'a':
         raise BookImportError('item-not-book', details, **kwargs)
 
 
@@ -209,7 +206,7 @@ class ia_importapi(importapi):
         # Case 1 - Is this a valid Archive.org item?
         metadata = ia.get_metadata(identifier)
         if not metadata:
-            raise BookImportError('invalid-ia-identifier', '%s not found' % identifier)
+            raise BookImportError('invalid-ia-identifier', f'{identifier} not found')
 
         # Case 2 - Does the item have an openlibrary field specified?
         # The scan operators search OL before loading the book and add the
@@ -227,7 +224,7 @@ class ia_importapi(importapi):
         # Case 3 - Can the item be loaded into Open Library?
         status = ia.get_item_status(identifier, metadata)
         if status != 'ok' and not force_import:
-            raise BookImportError(status, 'Prohibited Item %s' % identifier)
+            raise BookImportError(status, f'Prohibited Item {identifier}')
 
         # Case 4 - Does this item have a marc record?
         marc_record = get_marc_record_from_ia(identifier)
@@ -301,7 +298,7 @@ class ia_importapi(importapi):
 
             local_id = i.get('local_id')
             if local_id:
-                local_id_type = web.ctx.site.get('/local_ids/' + local_id)
+                local_id_type = web.ctx.site.get(f'/local_ids/{local_id}')
                 prefix = local_id_type.urn_prefix
                 force_import = True
                 id_field, id_subfield = local_id_type.id_location.split('$')
@@ -401,7 +398,7 @@ class ia_importapi(importapi):
             d['oclc'] = oclc
         # Ensure no negative page number counts.
         if imagecount:
-            if int(imagecount) - 4 >= 1:
+            if int(imagecount) >= 5:
                 d['number_of_pages'] = int(imagecount) - 4
             else:
                 d['number_of_pages'] = int(imagecount)
@@ -438,7 +435,7 @@ class ia_importapi(importapi):
         :return: Edition record
         """
         edition['ocaid'] = identifier
-        edition['source_records'] = 'ia:' + identifier
+        edition['source_records'] = f'ia:{identifier}'
         edition['cover'] = ia.get_cover_url(identifier)
         return edition
 
@@ -452,18 +449,13 @@ class ia_importapi(importapi):
         """
         # match ocaid
         q = {"type": "/type/edition", "ocaid": identifier}
-        keys = web.ctx.site.things(q)
-        if keys:
+        if keys := web.ctx.site.things(q):
             return keys[0]
 
         # Match source_records
         # When there are multiple scans for the same edition, only source_records is updated.
-        q = {"type": "/type/edition", "source_records": "ia:" + identifier}
-        keys = web.ctx.site.things(q)
-        if keys:
-            return keys[0]
-
-        return None
+        q = {"type": "/type/edition", "source_records": f"ia:{identifier}"}
+        return keys[0] if (keys := web.ctx.site.things(q)) else None
 
     @staticmethod
     def status_matched(key):
@@ -531,11 +523,7 @@ class ils_search:
         except accounts.ClientException:
             raise self.auth_failed("Invalid credentials")
 
-        # step 4: create if logged in
-        keys = []
-        if auth_header:
-            keys = self.create(matches)
-
+        keys = self.create(matches) if auth_header else []
         # step 4: format the result
         d = self.format_result(matches, auth_header, keys)
         return json.dumps(d)
@@ -586,8 +574,7 @@ class ils_search:
         return {"doc": data}
 
     def search(self, params):
-        matches = records.search(params)
-        return matches
+        return records.search(params)
 
     def create(self, items):
         return records.create(items)
@@ -615,10 +602,9 @@ class ils_search:
             covers = doc.get('covers') or []
             if covers and covers[0] > 0:
                 d['cover'] = {
-                    "small": "https://covers.openlibrary.org/b/id/%s-S.jpg" % covers[0],
-                    "medium": "https://covers.openlibrary.org/b/id/%s-M.jpg"
-                    % covers[0],
-                    "large": "https://covers.openlibrary.org/b/id/%s-L.jpg" % covers[0],
+                    "small": f"https://covers.openlibrary.org/b/id/{covers[0]}-S.jpg",
+                    "medium": f"https://covers.openlibrary.org/b/id/{covers[0]}-M.jpg",
+                    "large": f"https://covers.openlibrary.org/b/id/{covers[0]}-L.jpg",
                 }
 
             # Pull out identifiers to top level
@@ -627,18 +613,17 @@ class ils_search:
                 d[i] = identifiers[i]
             d.update(doc)
 
+        elif authenticated:
+            d = {'status': 'created', 'works': [], 'authors': [], 'editions': []}
+            for i in keys:
+                if i.startswith('/books'):
+                    d['editions'].append(i)
+                if i.startswith('/works'):
+                    d['works'].append(i)
+                if i.startswith('/authors'):
+                    d['authors'].append(i)
         else:
-            if authenticated:
-                d = {'status': 'created', 'works': [], 'authors': [], 'editions': []}
-                for i in keys:
-                    if i.startswith('/books'):
-                        d['editions'].append(i)
-                    if i.startswith('/works'):
-                        d['works'].append(i)
-                    if i.startswith('/authors'):
-                        d['authors'].append(i)
-            else:
-                d = {'status': 'notfound'}
+            d = {'status': 'notfound'}
         return d
 
 
@@ -715,9 +700,9 @@ class ils_cover_upload:
 
     def build_url(self, url, **params):
         if '?' in url:
-            return url + "&" + urllib.parse.urlencode(params)
+            return f"{url}&{urllib.parse.urlencode(params)}"
         else:
-            return url + "?" + urllib.parse.urlencode(params)
+            return f"{url}?{urllib.parse.urlencode(params)}"
 
     def login(self, auth_str):
         if not auth_str:
@@ -737,7 +722,7 @@ class ils_cover_upload:
         if not i.olid:
             self.error(i, "olid missing")
 
-        key = '/books/' + i.olid
+        key = f'/books/{i.olid}'
         book = web.ctx.site.get(key)
         if not book:
             raise self.error(i, "bad olid")

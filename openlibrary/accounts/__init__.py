@@ -11,7 +11,7 @@ def get_group(name):
     """
     Returns the group named 'name'.
     """
-    return web.ctx.site.get("/usergroup/%s" % name)
+    return web.ctx.site.get(f"/usergroup/{name}")
 
 
 class RunAs:
@@ -64,7 +64,7 @@ def find(username=None, lusername=None, email=None):
             return None
 
     if username:
-        doc = web.ctx.site.store.get("account/" + username)
+        doc = web.ctx.site.store.get(f"account/{username}")
     elif lusername:
         doc = query("lusername", lusername)
     elif email:
@@ -76,8 +76,8 @@ def find(username=None, lusername=None, email=None):
         # There are accounts with case-variation of emails. To handle those,
         # searching with the original case and using lower case if that fails.
         email_doc = web.ctx.site.store.get(
-            "account-email/" + email
-        ) or web.ctx.site.store.get("account-email/" + email.lower())
+            f"account-email/{email}"
+        ) or web.ctx.site.store.get(f"account-email/{email.lower()}")
         doc = email_doc and web.ctx.site.store.get("account/" + email_doc['username'])
     else:
         doc = None
@@ -100,8 +100,9 @@ def update_account(username, **kargs):
 
 
 def get_link(code):
-    docs = web.ctx.site.store.values(type="account-link", name="code", value=code)
-    if docs:
+    if docs := web.ctx.site.store.values(
+        type="account-link", name="code", value=code
+    ):
         doc = docs[0]
         return Link(doc)
     else:

@@ -5,17 +5,14 @@ from isbnlib import canonical
 def check_digit_10(isbn):
     """Takes the first 9 digits of an ISBN10 and returns the calculated final checkdigit."""
     if len(isbn) != 9:
-        raise ValueError("%s is not a valid ISBN 10" % isbn)
+        raise ValueError(f"{isbn} is not a valid ISBN 10")
     sum = 0
     for i in range(len(isbn)):
         c = int(isbn[i])
         w = i + 1
         sum += w * c
     r = sum % 11
-    if r == 10:
-        return 'X'
-    else:
-        return str(r)
+    return 'X' if r == 10 else str(r)
 
 
 def check_digit_13(isbn):
@@ -25,16 +22,10 @@ def check_digit_13(isbn):
     sum = 0
     for i in range(len(isbn)):
         c = int(isbn[i])
-        if i % 2:
-            w = 3
-        else:
-            w = 1
+        w = 3 if i % 2 else 1
         sum += w * c
     r = 10 - (sum % 10)
-    if r == 10:
-        return '0'
-    else:
-        return str(r)
+    return '0' if r == 10 else str(r)
 
 
 def isbn_13_to_isbn_10(isbn_13):
@@ -57,7 +48,7 @@ def isbn_10_to_isbn_13(isbn_10):
         or check_digit_10(isbn_10[:-1]) != isbn_10[-1]
     ):
         return
-    isbn_13 = '978' + isbn_10[:-1]
+    isbn_13 = f'978{isbn_10[:-1]}'
     return isbn_13 + check_digit_13(isbn_13)
 
 
@@ -71,8 +62,7 @@ def to_isbn_13(isbn: str) -> str | None:
 
 def opposite_isbn(isbn):  # ISBN10 -> ISBN13 and ISBN13 -> ISBN10
     for f in isbn_13_to_isbn_10, isbn_10_to_isbn_13:
-        alt = f(canonical(isbn))
-        if alt:
+        if alt := f(canonical(isbn)):
             return alt
 
 

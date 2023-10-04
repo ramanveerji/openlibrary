@@ -76,9 +76,7 @@ class autocomplete(delegate.page):
         docs = data['docs']
 
         if embedded_olid and not docs:
-            # Grumble! Work not in solr yet. Create a dummy.
-            fake_doc = self.db_fetch(olid_to_key(embedded_olid))
-            if fake_doc:
+            if fake_doc := self.db_fetch(olid_to_key(embedded_olid)):
                 docs = [fake_doc]
 
         result_docs = []
@@ -129,10 +127,7 @@ class authors_autocomplete(autocomplete):
     query = 'name:({q}*) OR alternate_names:({q}*) OR name:"{q}"^2 OR alternate_names:"{q}"^2'
 
     def doc_wrap(self, doc: dict):
-        if 'top_work' in doc:
-            doc['works'] = [doc.pop('top_work')]
-        else:
-            doc['works'] = []
+        doc['works'] = [doc.pop('top_work')] if 'top_work' in doc else []
         doc['subjects'] = doc.pop('top_subjects', [])
 
 

@@ -57,7 +57,7 @@ def get_cached_homepage():
     five_minutes = 5 * dateutil.MINUTE_SECS
     lang = web.ctx.lang
     pd = web.cookies().get('pd', False)
-    key = "home.homepage." + lang
+    key = f"home.homepage.{lang}"
     if pd:
         key += '.pd'
 
@@ -131,10 +131,7 @@ def get_ia_carousel_books(query=None, subject=None, sorts=None, limit=None):
         sorts=sorts,
         query=query,
     )
-    formatted_books = [
-        format_book_data(book, False) for book in books if book != 'error'
-    ]
-    return formatted_books
+    return [format_book_data(book, False) for book in books if book != 'error']
 
 
 def get_featured_subjects():
@@ -247,7 +244,7 @@ def format_work_data(work):
     key = work.get('key', '')
     # New solr stores the key as /works/OLxxxW
     if not key.startswith("/works/"):
-        key = "/works/" + key
+        key = f"/works/{key}"
 
     d['url'] = key
     d['title'] = work.get('title', '')
@@ -286,7 +283,7 @@ def format_book_data(book, fetch_availability=True):
     if cover:
         d.cover_url = cover.url("M")
     elif d.ocaid:
-        d.cover_url = 'https://archive.org/services/img/%s' % d.ocaid
+        d.cover_url = f'https://archive.org/services/img/{d.ocaid}'
 
     if fetch_availability and d.ocaid:
         collections = ia.get_metadata(d.ocaid).get('collection', [])

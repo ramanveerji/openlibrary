@@ -27,11 +27,7 @@ class RatingsAPI:
         headers = headers or {}
         """url open with cookie support."""
         if not method:
-            if data:
-                method = "POST"
-            else:
-                method = "GET"
-
+            method = "POST" if data else "GET"
         req = urllib.request.Request(self.server + path, data=data, headers=headers)
         req.get_method = lambda: method
         return self.opener.open(req)
@@ -41,7 +37,7 @@ class RatingsAPI:
         self.urlopen("/account/login", data=urllib.parse.urlencode(data), method="POST")
 
     def rate_book(self, work_key, data):
-        url = '%s/ratings.json' % (work_key)
+        url = f'{work_key}/ratings.json'
         headers = {"content-type": "application/json"}
         r = self.urlopen(url, data=json.dumps(data), headers=headers, method="POST")
         return json.loads(r.read())
@@ -54,9 +50,12 @@ def test_rating(config, monkeypatch):
     work_key = "/works/OL123W"
     data = {"rating": "5"}
 
+
+
     class FakeUser:
         def __init__(self, key):
-            self.key = '/users/%s' % key
+            self.key = f'/users/{key}'
+
 
     monkeypatch.setattr(accounts, "get_current_user", FakeUser('test'))
     monkeypatch.setattr(models.Ratings, "remove", {})

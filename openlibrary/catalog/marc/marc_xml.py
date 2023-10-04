@@ -27,7 +27,7 @@ def read_marc_file(f):
 
 
 def norm(s: str) -> str:
-    return normalize('NFC', str(s.replace('\xa0', ' ')))
+    return normalize('NFC', s.replace('\xa0', ' '))
 
 
 def get_text(e: etree._Element) -> str:
@@ -90,9 +90,8 @@ class MarcXml(MarcBase):
                 continue
             if not tag.isdigit():
                 non_digit = True
-            else:
-                if tag[0] != '9' and non_digit:
-                    raise BadSubtag
+            elif tag[0] != '9' and non_digit:
+                raise BadSubtag
             if f.attrib['tag'] not in want:
                 continue
             yield f.attrib['tag'], self.decode_field(f)

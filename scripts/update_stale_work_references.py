@@ -14,7 +14,7 @@ import datetime
 def main(ol_config: str, start_offset=0, days=31):
     load_config(ol_config)
     infogami._setup()
-    cutoff_date = datetime.datetime.today() - datetime.timedelta(days=days)
+    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=days)
     Work.resolve_redirects_bulk(
         start_offset=start_offset,
         cutoff_date=cutoff_date,
