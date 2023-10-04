@@ -34,7 +34,7 @@ langs = {
 
 
 def convert_pressbooks_to_ol(data):
-    book = {"source_records": ['pressbooks:%s' % data['url']]}
+    book = {"source_records": [f"pressbooks:{data['url']}"]}
     if data.get('isbn'):
         book['isbn_13'] = [
             isbn.split(' ')[0].replace('-', '') for isbn in data['isbn'].split('; ')
@@ -47,12 +47,11 @@ def convert_pressbooks_to_ol(data):
         book['authors'] = [{"name": a} for a in data.get('author')]
     if data.get('image') and not data['image'].endswith('default-book-cover.jpg'):
         book['cover'] = data['image']
-    description = (
+    if description := (
         (data.get('description') or '')
         + '\n\n'
         + (data.get('disambiguatingDescription') or '')
-    ).strip()
-    if description:
+    ).strip():
         book['description'] = description
     if data.get('alternateName'):
         book['other_titles'] = [data['alternateName']]
@@ -65,8 +64,9 @@ def convert_pressbooks_to_ol(data):
     )
     assert book['publish_date'], data
 
-    subjects = (data.get('about') or []) + (data.get('keywords') or '').split(', ')
-    if subjects:
+    if subjects := (data.get('about') or []) + (
+        data.get('keywords') or ''
+    ).split(', '):
         book['subjects'] = [
             s.strip().capitalize() for s in subjects if s  # Sometimes they're null?
         ]
@@ -81,13 +81,12 @@ def convert_pressbooks_to_ol(data):
     ]
     book['physical_format'] = 'Ebook'
 
-    copyright_line = ' '.join(
+    if copyright_line := ' '.join(
         [
             data.get('copyrightYear') or '',
             data.get('copyrightHolderName') or '',
         ]
-    ).strip()
-    if copyright_line:
+    ).strip():
         book['copyright_date'] = copyright_line
 
     if data.get('wordCount'):
@@ -108,9 +107,9 @@ def convert_pressbooks_to_ol(data):
         ]
         for pressbooks_field, ol_role in contributors_map.items()
     ]
-    contributors = [contributor for lst in contributors if lst for contributor in lst]
-
-    if contributors:
+    if contributors := [
+        contributor for lst in contributors if lst for contributor in lst
+    ]:
         book['contributors'] = contributors
 
     return book

@@ -60,7 +60,7 @@ def fix_subject(e):
 def undelete_author(a, ol):
     key = a['key']
     assert a['type'] == '/type/delete'
-    url = 'http://openlibrary.org' + key + '.json?v=' + str(a['revision'] - 1)
+    url = f'http://openlibrary.org{key}.json?v=' + str(a['revision'] - 1)
     prev = unmarshal(requests.get(url).json())
     assert prev['type'] == '/type/author'
     ol.save(key, prev, 'undelete author')
@@ -99,7 +99,7 @@ def fix_edition(key, e, ol):
         else:
             print('existing:', existing)
             m = re_meta_mrc.search(existing)
-            sr = ['marc:' + existing if not m else 'ia:' + m.group(1)]
+            sr = [f'marc:{existing}' if not m else f'ia:{m.group(1)}']
         e['source_records'] = sr
     if 'ocaid' in e:
         ia = 'ia:' + e['ocaid']

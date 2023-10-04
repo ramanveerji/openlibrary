@@ -100,10 +100,7 @@ def find_matches_by_isbn(isbns):
     "Find matches using isbns."
     q = {'type': '/type/edition', 'isbn_': str(isbns[0])}
     print("ISBN query : ", q)
-    if ekeys := list(web.ctx.site.things(q)):
-        return ekeys[:1]  # TODO: We artificially match only one item here
-    else:
-        return []
+    return ekeys[:1] if (ekeys := list(web.ctx.site.things(q))) else []
 
 
 def find_matches_by_identifiers(identifiers):
@@ -148,8 +145,7 @@ def find_matches_by_title_and_publishers(doc):
     for key in ["title", 'publishers', 'publish_date']:
         if key in doc:
             q[key] = doc[key]
-    ekeys = web.ctx.site.things(q)
-    return ekeys
+    return web.ctx.site.things(q)
 
 
 def massage_search_results(things, input_query=None):
@@ -234,7 +230,6 @@ def thing_to_doc(thing, keys=None):
     """
     if not isinstance(thing, Thing):
         thing = web.ctx.site.get(thing)
-    keys = keys or []
     typ = str(thing['type'])
 
     processors = {
@@ -253,7 +248,7 @@ def thing_to_doc(thing, keys=None):
     # Unpack 'type'
     doc['type'] = doc['type']['key']
 
-    if keys:
+    if keys := keys or []:
         keys += ['key', 'type', 'authors', 'work']
         keys = set(keys)
         for i in list(doc):
@@ -390,7 +385,6 @@ def doc_to_things(doc):
     If the doc doesn't have a key, the function will call
     web.ctx.site.new_key, generate one for it and add that as the key.
     """
-    retval = []
     doc = copy.deepcopy(doc)
     key = doc.get('key')
     typ = doc['type']
@@ -417,7 +411,7 @@ def doc_to_things(doc):
         '/type/author': author_doc_to_things,
     }
     extras = processors[typ](doc)
-    retval.append(doc)
+    retval = [doc]
     retval.extend(extras)
 
     return retval

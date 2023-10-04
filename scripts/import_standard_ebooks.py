@@ -41,7 +41,7 @@ def map_data(entry) -> dict[str, Any]:
         "title": entry.title,
         "source_records": [f"standard_ebooks:{std_ebooks_id}"],
         "publishers": [entry.publisher],
-        "publish_date": entry.dc_issued[0:4],
+        "publish_date": entry.dc_issued[:4],
         "authors": [{"name": author.name} for author in entry.authors],
         "description": entry.content[0].value,
         "subjects": [tag.term for tag in entry.tags],

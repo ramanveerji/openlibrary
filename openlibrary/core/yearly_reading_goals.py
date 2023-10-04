@@ -48,10 +48,7 @@ class YearlyReadingGoals:
         }
         results = list(oldb.select(cls.TABLENAME, where=where, vars=data))
 
-        if not results:
-            return False
-        else:
-            return results[0]['current'] >= results[0]['target']
+        return False if not results else results[0]['current'] >= results[0]['target']
 
     # Update methods:
     @classmethod

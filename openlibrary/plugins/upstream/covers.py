@@ -47,14 +47,13 @@ class add_cover(delegate.page):
 
         data = self.upload(key, i)
 
-        if coverid := data.get('id'):
-            if isinstance(i.url, bytes):
-                i.url = i.url.decode("utf-8")
-            self.save(book, coverid, url=i.url)
-            cover = Image(web.ctx.site, "b", coverid)
-            return render_template("covers/saved", cover)
-        else:
+        if not (coverid := data.get('id')):
             return render_template("covers/add", book, {'url': i.url}, data)
+        if isinstance(i.url, bytes):
+            i.url = i.url.decode("utf-8")
+        self.save(book, coverid, url=i.url)
+        cover = Image(web.ctx.site, "b", coverid)
+        return render_template("covers/saved", cover)
 
     def upload(self, key, i):
         """Uploads a cover to coverstore and returns the response."""
@@ -79,7 +78,7 @@ class add_cover(delegate.page):
         upload_url = f'{get_coverstore_url()}/{self.cover_category}/upload2'
 
         if upload_url.startswith("//"):
-            upload_url = "http:" + upload_url
+            upload_url = f"http:{upload_url}"
 
         try:
             files = {'data': BytesIO(data)}
@@ -122,10 +121,10 @@ class manage_covers(delegate.page):
     path = r"(/books/OL\d+M)/manage-covers"
 
     def GET(self, key):
-        book = web.ctx.site.get(key)
-        if not book:
+        if book := web.ctx.site.get(key):
+            return render_template("covers/manage", key, self.get_images(book))
+        else:
             raise web.notfound()
-        return render_template("covers/manage", key, self.get_images(book))
 
     def get_images(self, book):
         return book.get_covers()
@@ -147,9 +146,6 @@ class manage_covers(delegate.page):
             images = [int(id) for id in images[: images.index('-')]]
             self.save_images(book, images)
             return render_template("covers/saved", self.get_image(book), showinfo=False)
-        else:
-            # ERROR
-            pass
 
 
 class manage_work_covers(manage_covers):

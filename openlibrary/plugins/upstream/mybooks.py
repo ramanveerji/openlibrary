@@ -55,10 +55,10 @@ class public_my_books_json(delegate.page):
         page = safeint(i.page, 1)
         limit = safeint(i.limit, 5000)
         # check if user's reading log is public
-        user = web.ctx.site.get('/people/%s' % username)
+        user = web.ctx.site.get(f'/people/{username}')
         if not user:
             return delegate.RawText(
-                json.dumps({'error': 'User %s not found' % username}),
+                json.dumps({'error': f'User {username} not found'}),
                 content_type="application/json",
             )
         is_public = user.preferences().get('public_readlog', 'no') == 'yes'
@@ -76,7 +76,7 @@ class public_my_books_json(delegate.page):
                         'title': w.get('title'),
                         'key': w.key,
                         'author_keys': [
-                            '/authors/' + key for key in w.get('author_key', [])
+                            f'/authors/{key}' for key in w.get('author_key', [])
                         ],
                         'author_names': w.get('author_name', []),
                         'first_publish_year': w.get('first_publish_year') or None,
@@ -86,11 +86,11 @@ class public_my_books_json(delegate.page):
                         'cover_edition_key': (w.get('cover_edition_key') or None),
                     },
                     'logged_edition': w.get('logged_edition') or None,
-                    'logged_date': (
-                        w.get('logged_date').strftime("%Y/%m/%d, %H:%M:%S")
-                        if w.get('logged_date')
-                        else None
-                    ),
+                    'logged_date': w.get('logged_date').strftime(
+                        "%Y/%m/%d, %H:%M:%S"
+                    )
+                    if w.get('logged_date')
+                    else None,
                 }
                 for w in books
             ]
@@ -100,7 +100,7 @@ class public_my_books_json(delegate.page):
             )
         else:
             return delegate.RawText(
-                json.dumps({'error': 'Shelf %s not found or not accessible' % key}),
+                json.dumps({'error': f'Shelf {key} not found or not accessible'}),
                 content_type="application/json",
             )
 
@@ -121,9 +121,9 @@ class readinglog_stats(delegate.page):
     path = "/people/([^/]+)/books/([a-zA-Z_-]+)/stats"
 
     def GET(self, username, key='want-to-read'):
-        user = web.ctx.site.get('/people/%s' % username)
+        user = web.ctx.site.get(f'/people/{username}')
         if not user:
-            return render.notfound("User %s" % username, create=False)
+            return render.notfound(f"User {username}", create=False)
 
         cur_user = accounts.get_current_user()
         if not cur_user or cur_user.key.split('/')[-1] != username:
@@ -133,10 +133,11 @@ class readinglog_stats(delegate.page):
         works = readlog.get_works(key, page=1, limit=2000).docs
         works_json = [
             {
-                # Fallback to key if it is a redirect
                 'title': w.get('title') or w.key,
                 'key': w.get('key'),
-                'author_keys': ['/authors/' + key for key in w.get('author_key', [])],
+                'author_keys': [
+                    f'/authors/{key}' for key in w.get('author_key', [])
+                ],
                 'first_publish_year': w.get('first_publish_year') or None,
                 'subjects': w.get('subject'),
                 'subject_people': w.get('person'),
@@ -168,7 +169,7 @@ class readinglog_stats(delegate.page):
 
 @public
 def get_public_patron_account(username):
-    user = web.ctx.site.get('/people/%s' % username)
+    user = web.ctx.site.get(f'/people/{username}')
     return ReadingLog(user=user)
 
 
@@ -177,8 +178,7 @@ def get_patrons_work_read_status(username, work_key):
     if not username:
         return None
     work_id = extract_numeric_id_from_olid(work_key)
-    status_id = Bookshelves.get_users_read_status_of_work(username, work_id)
-    return status_id
+    return Bookshelves.get_users_read_status_of_work(username, work_id)
 
 
 class MyBooksTemplate:
@@ -201,7 +201,7 @@ class MyBooksTemplate:
 
     def __init__(self, username, key):
         self.username = username
-        self.user = web.ctx.site.get('/people/%s' % self.username)
+        self.user = web.ctx.site.get(f'/people/{self.username}')
         self.key = key.lower()
         self.readlog = ReadingLog(user=self.user)
         self.lists = self.readlog.lists
@@ -222,7 +222,7 @@ class MyBooksTemplate:
         render the template.
         """
         if not self.user:
-            return render.notfound("User %s" % self.username, create=False)
+            return render.notfound(f"User {self.username}", create=False)
         logged_in_user = accounts.get_current_user()
         is_logged_in_user = (
             logged_in_user and logged_in_user.key.split('/')[-1] == self.username
@@ -241,7 +241,7 @@ class MyBooksTemplate:
                     add_availability(
                         web.ctx.site.get_many(
                             [
-                                '/books/%s' % doc['openlibrary_edition']
+                                f"/books/{doc['openlibrary_edition']}"
                                 for doc in sponsorships
                             ]
                         )
@@ -250,7 +250,6 @@ class MyBooksTemplate:
                     else None
                 )
 
-            # Reading log for logged in users.
             elif self.key in self.READING_LOG_KEYS:
                 logged_book_data: LoggedBooksData = self.readlog.get_works(
                     key=self.key,
@@ -275,7 +274,6 @@ class MyBooksTemplate:
             else:
                 docs = self._prepare_data(logged_in_user)
 
-        # Reading log for non-logged in users.
         elif self.key in self.READING_LOG_KEYS and is_public:
             logged_book_data: LoggedBooksData = self.readlog.get_works(  # type: ignore[no-redef]
                 key=self.key, page=page, sort='created', sort_order=sort, q=q, year=year
@@ -350,9 +348,7 @@ class MyBooksTemplate:
         elif self.key == 'waitlist':
             return {}
         elif self.key == 'lists':
-            if username:
-                return web.ctx.site.get('/people/%s' % username)
-            return self.user
+            return web.ctx.site.get(f'/people/{username}') if username else self.user
         elif self.key == 'notes':
             return PatronBooknotes(self.user).get_notes(page=page)
         elif self.key == 'observations':
@@ -447,7 +443,7 @@ class ReadingLog:
         # Mypy is unhappy about the sort argument not being a literal string.
         # Although this doesn't satisfy Mypy, at least make sure sort is either
         # "created asc" or "created desc"
-        if sort + " " + sort_order == "created asc":
+        if f"{sort} {sort_order}" == "created asc":
             sort_literal = "created_asc"
         else:
             sort_literal = "created desc"
@@ -475,9 +471,9 @@ def get_read_status(work_key, username):
 def add_read_statuses(username, works):
     work_ids = [extract_numeric_id_from_olid(work.key.split('/')[-1]) for work in works]
     results = Bookshelves.get_users_read_status_of_works(username, work_ids)
-    results_map = {}
-    for result in results:
-        results_map[f"OL{result['work_id']}W"] = result['bookshelf_id']
+    results_map = {
+        f"OL{result['work_id']}W": result['bookshelf_id'] for result in results
+    }
     for work in works:
         work_olid = work.key.split('/')[-1]
         work['readinglog'] = results_map.get(work_olid, None)
@@ -517,9 +513,10 @@ class PatronBooknotes:
             entry['work_key'] = f"/works/OL{entry['work_id']}W"
             entry['work'] = self._get_work(entry['work_key'])
             entry['work_details'] = self._get_work_details(entry['work'])
-            ids = {}
-            for item in entry['observations']:
-                ids[item['observation_type']] = item['observation_values']
+            ids = {
+                item['observation_type']: item['observation_values']
+                for item in entry['observations']
+            }
             entry['observations'] = convert_observation_ids(ids)
         return observations
 

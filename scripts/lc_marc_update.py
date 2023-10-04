@@ -19,20 +19,20 @@ config_file = args.config
 config.load(config_file)
 c = config.runtime_config['lc_marc_update']
 base_url = 'http://openlibrary.org'
-import_api_url = base_url + '/api/import'
+import_api_url = f'{base_url}/api/import'
 internal_error = '<Code>InternalError</Code>'
 no_bucket_error = '<Code>NoSuchBucket</Code>'
 
 
 def put_file(con, ia, filename, data):
-    print('uploading %s' % filename)
+    print(f'uploading {filename}')
     headers = {
         'authorization': "LOW " + c['s3_key'] + ':' + c['s3_secret'],
         #        'x-archive-queue-derive': 0,
     }
-    url = 'http://s3.us.archive.org/' + ia + '/' + filename
+    url = f'http://s3.us.archive.org/{ia}/{filename}'
     print(url)
-    for attempt in range(5):
+    for _ in range(5):
         con.request('PUT', url, data, headers)
         try:
             res = con.getresponse()
@@ -112,16 +112,15 @@ def iter_marc(data):
 def login(h1, password):
     body = json.dumps({'username': 'LCImportBot', 'password': password})
     headers = {'Content-Type': 'application/json'}
-    h1.request('POST', base_url + '/account/login', body, headers)
-    print(base_url + '/account/login')
+    h1.request('POST', f'{base_url}/account/login', body, headers)
+    print(f'{base_url}/account/login')
     res = h1.getresponse()
 
     print(res.read())
     print('status:', res.status)
     assert res.status == 200
     cookies = res.getheader('set-cookie').split(',')
-    cookie = ';'.join([c.split(';')[0] for c in cookies])
-    return cookie
+    return ';'.join([c.split(';')[0] for c in cookies])
 
 
 h1 = httplib.HTTPConnection('openlibrary.org')
@@ -132,10 +131,10 @@ headers = {
 h1.close()
 
 item_id = 'marc_loc_updates'
+data = ''
 for f in to_upload:
-    data = ''
     print('downloading', f)
-    ftp.retrbinary('RETR ' + f, read_block)
+    ftp.retrbinary(f'RETR {f}', read_block)
     print('done')
     con = httplib.HTTPConnection('s3.us.archive.org')
     con.connect()
@@ -144,10 +143,10 @@ for f in to_upload:
     if not f.endswith('.records.utf8'):
         continue
 
-    loc_file = item_id + '/' + f
+    loc_file = f'{item_id}/{f}'
     for pos, length, marc_data in iter_marc(data):
         loc = '%s:%d:%d' % (loc_file, pos, length)
-        headers['x-archive-meta-source-record'] = 'marc:' + loc
+        headers['x-archive-meta-source-record'] = f'marc:{loc}'
         try:
             h1 = httplib.HTTPConnection('openlibrary.org')
             h1.request('POST', import_api_url, marc_data, headers)
@@ -158,12 +157,11 @@ for f in to_upload:
             body = res.read()
             if res.status != 200:
                 raise BadImport
-            else:
-                try:
-                    reply = json.loads(body)
-                except ValueError:
-                    print(('not JSON:', repr(body)))
-                    raise BadImport
+            try:
+                reply = json.loads(body)
+            except ValueError:
+                print(('not JSON:', repr(body)))
+                raise BadImport
             assert res.status == 200
             print(reply)
             assert reply['success']

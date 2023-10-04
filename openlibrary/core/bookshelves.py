@@ -212,7 +212,7 @@ class Bookshelves(db.CommonExtras):
         sort: Literal['created asc', 'created desc'] = 'created desc',
         checkin_year: int | None = None,
         q: str = "",
-    ) -> Any:  # Circular imports prevent type hinting LoggedBooksData
+    ) -> Any:    # Circular imports prevent type hinting LoggedBooksData
         """
         Returns LoggedBooksData containing Reading Log database records for books that
         the user has logged. Also allows filtering/searching the reading log shelves,
@@ -307,8 +307,8 @@ class Bookshelves(db.CommonExtras):
             return solr_docs
 
         def get_filtered_reading_log_books(
-            q: str, query_params: dict[str, str | int | None], filter_book_limit: int
-        ) -> LoggedBooksData:
+                q: str, query_params: dict[str, str | int | None], filter_book_limit: int
+            ) -> LoggedBooksData:
             """
             Filter reading log books based an a query and return LoggedBooksData.
             This does not work with sorting.
@@ -336,7 +336,7 @@ class Bookshelves(db.CommonExtras):
 
             # Wrap in quotes to avoid treating as regex. Only need this for fq
             reading_log_work_keys = (
-                '"/works/OL%sW"' % i['work_id'] for i in reading_log_books
+                f""""/works/OL{i['work_id']}W\"""" for i in reading_log_books
             )
             solr_resp = run_solr_query(
                 scheme=WorkSearchScheme(),
@@ -364,10 +364,10 @@ class Bookshelves(db.CommonExtras):
             )
 
         def get_sorted_reading_log_books(
-            query_params: dict[str, str | int | None],
-            sort: Literal['created asc', 'created desc'],
-            checkin_year: int | None,
-        ):
+                query_params: dict[str, str | int | None],
+                sort: Literal['created asc', 'created desc'],
+                checkin_year: int | None,
+            ):
             """
             Get a page of sorted books from the reading log. This does not work with
             filtering/searching the reading log.
@@ -406,7 +406,7 @@ class Bookshelves(db.CommonExtras):
             )
 
             reading_log_work_keys = [
-                '/works/OL%sW' % i['work_id'] for i in reading_log_books
+                f"/works/OL{i['work_id']}W" for i in reading_log_books
             ]
             solr_docs = get_solr().get_many(
                 reading_log_work_keys,
@@ -532,13 +532,9 @@ class Bookshelves(db.CommonExtras):
         oldb = db.get_db()
         work_id = int(work_id)  # type: ignore
         bookshelf_id = int(bookshelf_id)  # type: ignore
-        data = {
-            'work_id': work_id,
-            'username': username,
-        }
-
-        users_status = cls.get_users_read_status_of_work(username, work_id)
-        if not users_status:
+        if not (
+            users_status := cls.get_users_read_status_of_work(username, work_id)
+        ):
             return oldb.insert(
                 cls.TABLENAME,
                 username=username,
@@ -546,15 +542,19 @@ class Bookshelves(db.CommonExtras):
                 work_id=work_id,
                 edition_id=edition_id,
             )
-        else:
-            where = "work_id=$work_id AND username=$username"
-            return oldb.update(
-                cls.TABLENAME,
-                where=where,
-                bookshelf_id=bookshelf_id,
-                edition_id=edition_id,
-                vars=data,
-            )
+        where = "work_id=$work_id AND username=$username"
+        data = {
+            'work_id': work_id,
+            'username': username,
+        }
+
+        return oldb.update(
+            cls.TABLENAME,
+            where=where,
+            bookshelf_id=bookshelf_id,
+            edition_id=edition_id,
+            vars=data,
+        )
 
     @classmethod
     def remove(cls, username: str, work_id: str, bookshelf_id: str | None = None):
@@ -603,11 +603,10 @@ class Bookshelves(db.CommonExtras):
     def get_work_summary(cls, work_id: str) -> WorkReadingLogSummary:
         shelf_id_to_count = Bookshelves.get_num_users_by_bookshelf_by_work_id(work_id)
 
-        result = {}
-        # Make sure all the fields are present
-        for shelf_name, shelf_id in Bookshelves.PRESET_BOOKSHELVES_JSON.items():
-            result[shelf_name] = shelf_id_to_count.get(shelf_id, 0)
-
+        result = {
+            shelf_name: shelf_id_to_count.get(shelf_id, 0)
+            for shelf_name, shelf_id in Bookshelves.PRESET_BOOKSHELVES_JSON.items()
+        }
         return cast(WorkReadingLogSummary, result)
 
     @classmethod

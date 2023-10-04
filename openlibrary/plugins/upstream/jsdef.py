@@ -116,30 +116,24 @@ class JSNode:
         >>> jsemit(web.template.AssignmentNode("x = 1"), "")
         'var x = 1;\n'
         """
-        name = "jsemit_" + node.__class__.__name__
-        if f := getattr(self, name, None):
-            return f(node, indent)
-        else:
-            return ""
+        name = f"jsemit_{node.__class__.__name__}"
+        return f(node, indent) if (f := getattr(self, name, None)) else ""
 
     def jsemit_SuiteNode(self, node, indent):
         return "".join(self.jsemit(s, indent) for s in node.sections)
 
     def jsemit_LineNode(self, node, indent):
-        text = ["self.push(%s);" % self.jsemit(n, "") for n in node.nodes]
+        text = [f'self.push({self.jsemit(n, "")});' for n in node.nodes]
         return indent + " ".join(text) + "\n"
 
     def jsemit_TextNode(self, node, indent):
         return json.dumps(node.value)
 
     def jsemit_ExpressionNode(self, node, indent):
-        if node.escape:
-            return "websafe(%s)" % py2js(node.value)
-        else:
-            return py2js(node.value)
+        return f"websafe({py2js(node.value)})" if node.escape else py2js(node.value)
 
     def jsemit_AssignmentNode(self, node, indent):
-        return indent + "var " + py2js(node.code) + ";\n"
+        return f"{indent}var {py2js(node.code)}" + ";\n"
 
     def jsemit_StatementNode(self, node, indent):
         return indent + py2js(node.stmt) + ";\n"
@@ -157,10 +151,10 @@ class JSNode:
             return ""
 
         expr = node.stmt[len(name) :].strip(": ")
-        expr = expr and "(" + expr + ")"
+        expr = expr and f"({expr})"
 
         jsname = jsnames.get(name, name)
-        text += indent + f"{jsname} {py2js(expr)} {{\n"
+        text += f"{indent}{jsname} {py2js(expr)} {{\n"
         text += self.jsemit(node.suite, indent + INDENT)
         text += indent + "}\n"
         return text
@@ -179,15 +173,13 @@ class JSNode:
         b = web.re_compile(r"loop.setup\((.*)\)").match(b).group(1)
 
         text = ""
-        text += indent + f"foreach({py2js(b)}, loop, function(loop, {a}) {{\n"
+        text += f"{indent}foreach({py2js(b)}, loop, function(loop, {a}) {{\n"
         text += self.jsemit(node.suite, indent + INDENT)
         text += indent + "});\n"
         return text
 
     def jsemit_JSDefNode(self, node, indent):
-        text = ""
-        text += '<script type="text/javascript"><!--\n'
-
+        text = "" + '<script type="text/javascript"><!--\n'
         text += node.stmt.replace("def ", "function ").strip(": ") + "{\n"
         text += '    var self = [], loop;\n'
         text += self.jsemit(node.suite, indent + INDENT)

@@ -102,10 +102,7 @@ class OPDS:
     # create_root()
     # ___________________________________________________________________________
     def create_root(self, root_name):
-        # ## TODO: add updated element and uuid element
-        opds = ET.Element(OPDS.atom + root_name, nsmap=OPDS.nsmap)
-
-        return opds
+        return ET.Element(OPDS.atom + root_name, nsmap=OPDS.nsmap)
 
     # __init__()
     # ___________________________________________________________________________
@@ -133,7 +130,7 @@ class OPDSEntry(OPDS):
     # add_indirect_acq()
     # ___________________________________________________________________________
     def add_indirect_acq(self, parent, type):
-        element = ET.SubElement(parent, self.opdsNS + 'indirectAcquisition')
+        element = ET.SubElement(parent, f'{self.opdsNS}indirectAcquisition')
         element.attrib['type'] = type
         return element
 
@@ -159,10 +156,10 @@ class OPDSEntry(OPDS):
                 indirect_acq = self.add_indirect_acq(
                     link, 'application/vnd.adobe.adept+xml'
                 )
-                if got_epub:
-                    self.add_indirect_acq(indirect_acq, 'application/epub+zip')
-                if got_pdf:
-                    self.add_indirect_acq(indirect_acq, 'application/pdf')
+            if got_epub:
+                self.add_indirect_acq(indirect_acq, 'application/epub+zip')
+            if got_pdf:
+                self.add_indirect_acq(indirect_acq, 'application/pdf')
         elif 'printdisabled' not in collection:
             self.create_rel_link(
                 None,
@@ -185,7 +182,7 @@ class OPDSEntry(OPDS):
             self.create_rel_link(
                 None,
                 'related',
-                'https://openlibrary.org' + work.key,
+                f'https://openlibrary.org{work.key}',
                 'text/html',
                 'Open Library Work',
             )
@@ -198,7 +195,7 @@ class OPDSEntry(OPDS):
                     'ocaid',
                 ]:  # these go in other elements
                     self.create_rel_link(
-                        None, 'related', id.url, 'text/html', 'View on ' + id.label
+                        None, 'related', id.url, 'text/html', f'View on {id.label}'
                     )
 
     # __init__()
@@ -207,10 +204,10 @@ class OPDSEntry(OPDS):
         self.root = self.create_root('entry')
 
         bookID = book.key
-        atomID = 'https://openlibrary.org' + bookID + '.opds'
+        atomID = f'https://openlibrary.org{bookID}.opds'
         title = book.title
         if book.subtitle:
-            title += " " + book.subtitle
+            title += f" {book.subtitle}"
         updated = parse_datetime(book.last_modified).strftime('%Y-%m-%dT%H:%M:%SZ')
 
         work = book.works and book.works[0]
@@ -236,20 +233,20 @@ class OPDSEntry(OPDS):
         self.add('id', atomID)
         self.create_rel_link(None, 'self', atomID)
         self.create_rel_link(
-            None, 'alternate', 'https://openlibrary.org' + book.url(), 'text/html'
+            None, 'alternate', f'https://openlibrary.org{book.url()}', 'text/html'
         )
         self.add('title', title)
         self.add('updated', updated)
 
         for a in authors:
-            self.add_author(a.name, 'https://openlibrary.org' + a.url())
+            self.add_author(a.name, f'https://openlibrary.org{a.url()}')
 
-        self.add_list(self.dcterms + 'publisher', book.publishers)
-        self.add_list(self.rdvocab + 'placeOfPublication', book.publish_places)
-        self.add_list(self.dcterms + 'issued', book.publish_date)
-        self.add_list(self.dcterms + 'extent', pages)
-        self.add_list(self.rdvocab + 'dimensions', book.physical_dimensions)
-        self.add_list(self.bibo + 'edition', book.edition_name)
+        self.add_list(f'{self.dcterms}publisher', book.publishers)
+        self.add_list(f'{self.rdvocab}placeOfPublication', book.publish_places)
+        self.add_list(f'{self.dcterms}issued', book.publish_date)
+        self.add_list(f'{self.dcterms}extent', pages)
+        self.add_list(f'{self.rdvocab}dimensions', book.physical_dimensions)
+        self.add_list(f'{self.bibo}edition', book.edition_name)
 
         for subject in subjects:
             self.add_category(
@@ -258,37 +255,37 @@ class OPDSEntry(OPDS):
             )
 
         self.add_list('summary', book.description)
-        self.add_list(self.rdvocab + 'note', book.notes)
+        self.add_list(f'{self.rdvocab}note', book.notes)
 
         for lang in book.languages:
-            self.add_list(self.dcterms + 'language', lang.code)
+            self.add_list(f'{self.dcterms}language', lang.code)
 
         self.add_list(
-            self.dcterms + 'identifier',
+            f'{self.dcterms}identifier',
             book.key,
             'https://openlibrary.org',
-            {self.xsi + 'type': 'dcterms:URI'},
+            {f'{self.xsi}type': 'dcterms:URI'},
         )
         self.add_list(
-            self.dcterms + 'identifier',
+            f'{self.dcterms}identifier',
             book.ocaid,
             'https://archive.org/details/',
-            {self.xsi + 'type': 'dcterms:URI'},
+            {f'{self.xsi}type': 'dcterms:URI'},
         )
         self.add_list(
-            self.dcterms + 'identifier',
+            f'{self.dcterms}identifier',
             book.isbn_10,
             'urn:ISBN:',
-            {self.xsi + 'type': 'dcterms:ISBN'},
+            {f'{self.xsi}type': 'dcterms:ISBN'},
         )
         self.add_list(
-            self.dcterms + 'identifier',
+            f'{self.dcterms}identifier',
             book.isbn_13,
             'urn:ISBN:',
-            {self.xsi + 'type': 'dcterms:ISBN'},
+            {f'{self.xsi}type': 'dcterms:ISBN'},
         )
-        self.add_list(self.bibo + 'oclcnum', book.oclc_numbers)
-        self.add_list(self.bibo + 'lccn', book.lccn)
+        self.add_list(f'{self.bibo}oclcnum', book.oclc_numbers)
+        self.add_list(f'{self.bibo}lccn', book.lccn)
 
         if coverLarge:
             self.create_rel_link(

@@ -97,7 +97,7 @@ def normalize_ddc(ddc: str) -> list[str]:
             integer = number_parts[0]
 
             # Copy decimal without losing precision
-            decimal = '.' + number_parts[-1].strip() if len(number_parts) > 1 else ''
+            decimal = f'.{number_parts[-1].strip()}' if len(number_parts) > 1 else ''
 
             number = '%03d%s' % (int(integer), decimal)
 
@@ -107,9 +107,8 @@ def normalize_ddc(ddc: str) -> list[str]:
             if len(results) and re.search(r'(^0?\d{1,2}$)', parts['number']):
                 continue
 
-        # Handle [Fic] or [E]
         elif parts['fic']:
-            number = '[%s]' % parts['fic'].title()
+            number = f"[{parts['fic'].title()}]"
         else:
             continue
 
@@ -135,12 +134,10 @@ def normalize_ddc_range(start: str, end: str) -> list[str | None]:
     for ddc in start, end:
         if ddc == '*':
             ddc_range_norm.append('*')
+        elif normed := normalize_ddc(ddc):
+            ddc_range_norm.append(normed[0])
         else:
-            normed = normalize_ddc(ddc)
-            if normed:
-                ddc_range_norm.append(normed[0])
-            else:
-                ddc_range_norm.append(None)
+            ddc_range_norm.append(None)
     return ddc_range_norm
 
 
@@ -153,16 +150,10 @@ def normalize_ddc_prefix(prefix: str) -> str:
     >>> normalize_ddc_prefix('1.1')
     '001.1'
     """
-    # 23.* should become 023*
-    # 23.45* should become 023.45*
-    if '.' in prefix:
-        normed = normalize_ddc(prefix)
-        return normed[0] if normed else prefix
-    # 0* should stay as is
-    # 23* should stay as is
-    # j* should stay as is
-    else:
+    if '.' not in prefix:
         return prefix
+    normed = normalize_ddc(prefix)
+    return normed[0] if normed else prefix
 
 
 def choose_sorting_ddc(normalized_ddcs: Iterable[str]) -> str:

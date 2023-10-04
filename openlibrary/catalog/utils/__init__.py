@@ -84,17 +84,11 @@ def flip_name(name: str) -> str:
     if name.find(', ') == -1:
         return name
     m = re_marc_name.match(name)
-    if isinstance(m, Match):
-        return m.group(2) + ' ' + m.group(1)
-
-    return ""
+    return f'{m.group(2)} {m.group(1)}' if isinstance(m, Match) else ""
 
 
 def remove_trailing_number_dot(date):
-    if m := re_number_dot.search(date):
-        return date[: -len(m.group(1))]
-    else:
-        return date
+    return date[: -len(m.group(1))] if (m := re_number_dot.search(date)) else date
 
 
 def remove_trailing_dot(s):
@@ -118,11 +112,10 @@ def parse_date(date):
     if re_date_fl.match(date):
         return {}
     date = remove_trailing_number_dot(date)
-    date = re_ca.sub(lambda m: 'ca. ' + m.group(1), date)
+    date = re_ca.sub(lambda m: f'ca. {m.group(1)}', date)
     if date.find('-') == -1:
         for r in re_date:
-            m = r.search(date)
-            if m:
+            if m := r.search(date):
                 return {k: fix_l_in_date(v) for k, v in m.groupdict().items()}
         return {}
 
@@ -133,9 +126,8 @@ def parse_date(date):
         if parts[1]:
             i['death_date'] = fix_l_in_date(parts[1])
             if not re_ad_bc.search(i['birth_date']):
-                m = re_ad_bc.search(i['death_date'])
-                if m:
-                    i['birth_date'] += ' ' + m.group(1)
+                if m := re_ad_bc.search(i['death_date']):
+                    i['birth_date'] += f' {m.group(1)}'
     if 'birth_date' in i and 'l' in i['birth_date']:
         i['birth_date'] = fix_l_in_date(i['birth_date'])
     return i
@@ -214,7 +206,7 @@ def tidy_isbn(input):
     output = []
     for i in input:
         i = i.replace('-', '')
-        if len(i) in (10, 13):
+        if len(i) in {10, 13}:
             output.append(i)
             continue
         if len(i) == 20 and all(c.isdigit() for c in i):
@@ -225,11 +217,11 @@ def tidy_isbn(input):
             continue
         if i.find(';') != -1:
             no_semicolon = i.replace(';', '')
-            if len(no_semicolon) in (10, 13):
+            if len(no_semicolon) in {10, 13}:
                 output.append(no_semicolon)
                 continue
             split = i.split(';')
-            if all(len(j) in (10, 13) for j in split):
+            if all(len(j) in {10, 13} for j in split):
                 output.extend(split)
                 continue
         output.append(i)
@@ -254,21 +246,17 @@ def strip_count(counts):
 
 def fmt_author(a):
     if 'birth_date' in a or 'death_date' in a:
-        return "{} ({}-{})".format(
-            a['name'], a.get('birth_date', ''), a.get('death_date', '')
-        )
+        return f"{a['name']} ({a.get('birth_date', '')}-{a.get('death_date', '')})"
     return a['name']
 
 
 def get_title(e):
-    if e.get('title_prefix', None) is not None:
-        prefix = e['title_prefix']
-        if prefix[-1] != ' ':
-            prefix += ' '
-        title = prefix + e['title']
-    else:
-        title = e['title']
-    return title
+    if e.get('title_prefix', None) is None:
+        return e['title']
+    prefix = e['title_prefix']
+    if prefix[-1] != ' ':
+        prefix += ' '
+    return prefix + e['title']
 
 
 def mk_norm(s: str) -> str:

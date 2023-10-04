@@ -41,33 +41,31 @@ def get_ol_url():
 def ol_things(key, value):
     if oldb.is_supported():
         return oldb.query(key, value)
-    else:
-        query = {
-            'type': '/type/edition',
-            key: value,
-            'sort': 'last_modified',
-            'limit': 10,
-        }
-        try:
-            d = {"query": json.dumps(query)}
-            result = download(get_ol_url() + '/api/things?' + real_urlencode(d))
-            result = json.loads(result)
-            return result['result']
-        except OSError:
-            import traceback
+    query = {
+        'type': '/type/edition',
+        key: value,
+        'sort': 'last_modified',
+        'limit': 10,
+    }
+    try:
+        d = {"query": json.dumps(query)}
+        result = download(f'{get_ol_url()}/api/things?{real_urlencode(d)}')
+        result = json.loads(result)
+        return result['result']
+    except OSError:
+        import traceback
 
-            traceback.print_exc()
-            return []
+        traceback.print_exc()
+        return []
 
 
 def ol_get(olkey):
     if oldb.is_supported():
         return oldb.get(olkey)
-    else:
-        try:
-            return json.loads(download(get_ol_url() + olkey + ".json"))
-        except OSError:
-            return None
+    try:
+        return json.loads(download(get_ol_url() + olkey + ".json"))
+    except OSError:
+        return None
 
 
 USER_AGENT = (
@@ -100,7 +98,7 @@ def changequery(url, **kw):
     """
     base, params = urldecode(url)
     params.update(kw)
-    return base + '?' + real_urlencode(params)
+    return f'{base}?{real_urlencode(params)}'
 
 
 def read_file(path, offset, size, chunk=50 * 1024):
@@ -129,7 +127,7 @@ chars = string.ascii_letters + string.digits
 
 
 def random_string(n):
-    return "".join([random.choice(chars) for i in range(n)])
+    return "".join([random.choice(chars) for _ in range(n)])
 
 
 def urlencode(data):
@@ -146,37 +144,36 @@ def urlencode(data):
 
     if not multipart:
         return 'application/x-www-form-urlencoded', real_urlencode(data)
-    else:
-        # adopted from http://code.activestate.com/recipes/146306/
-        def get_content_type(filename):
-            return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+    # adopted from http://code.activestate.com/recipes/146306/
+    def get_content_type(filename):
+        return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
 
-        def encode(key, value, out):
-            if isinstance(value, file):
-                out.append('--' + BOUNDARY)
-                out.append(
-                    f'Content-Disposition: form-data; name="{key}"; filename="{value.name}"'
-                )
-                out.append('Content-Type: %s' % get_content_type(value.name))
-                out.append('')
-                out.append(value.read())
-            elif isinstance(value, list):
-                for v in value:
-                    encode(key, v)
-            else:
-                out.append('--' + BOUNDARY)
-                out.append('Content-Disposition: form-data; name="%s"' % key)
-                out.append('')
-                out.append(value)
+    def encode(key, value, out):
+        if isinstance(value, file):
+            out.append(f'--{BOUNDARY}')
+            out.append(
+                f'Content-Disposition: form-data; name="{key}"; filename="{value.name}"'
+            )
+            out.append(f'Content-Type: {get_content_type(value.name)}')
+            out.append('')
+            out.append(value.read())
+        elif isinstance(value, list):
+            for v in value:
+                encode(key, v)
+        else:
+            out.append(f'--{BOUNDARY}')
+            out.append(f'Content-Disposition: form-data; name="{key}"')
+            out.append('')
+            out.append(value)
 
-        BOUNDARY = "----------ThIs_Is_tHe_bouNdaRY_$"
-        CRLF = '\r\n'
-        out = []
-        for k, v in data.items():
-            encode(k, v, out)
-        body = CRLF.join(out)
-        content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
-        return content_type, body
+    BOUNDARY = "----------ThIs_Is_tHe_bouNdaRY_$"
+    CRLF = '\r\n'
+    out = []
+    for k, v in data.items():
+        encode(k, v, out)
+    body = CRLF.join(out)
+    content_type = f'multipart/form-data; boundary={BOUNDARY}'
+    return content_type, body
 
 
 if __name__ == "__main__":

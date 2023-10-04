@@ -11,7 +11,7 @@ from openlibrary import i18n
 def help():
     print("utility to manage i18n messages")
     print()
-    print("USAGE: %s [extract|compile|update|validate]" % sys.argv[0])
+    print(f"USAGE: {sys.argv[0]} [extract|compile|update|validate]")
     print()
     print("Available Commands:")
     print("  compile  - compile the message files (.po) to .mo")
@@ -58,7 +58,7 @@ def main(cmd, args):
     elif cmd == 'help':
         help()
     else:
-        print("unknown command: %s" % repr(cmd), file=sys.stderr)
+        print(f"unknown command: {repr(cmd)}", file=sys.stderr)
         sys.exit(2)
 
 

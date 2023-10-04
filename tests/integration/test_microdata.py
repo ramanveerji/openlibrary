@@ -12,14 +12,14 @@ class TestMicrodata:
         browser.quit()
 
     def test_open_graph_metadata_on_work(self, browser):
-        url = self.host + '/works/OL6037022W/Remix'
+        url = f'{self.host}/works/OL6037022W/Remix'
         browser.visit(url)
         assert browser.is_element_present_by_css(
             "#content > div.contentContainer[itemtype='https://schema.org/Book']"
         )
 
     def test_open_graph_metadata_on_edition(self, browser):
-        url = self.host + '/books/OL24218235M/Remix'
+        url = f'{self.host}/books/OL24218235M/Remix'
         browser.visit(url)
         assert browser.is_element_present_by_css(
             "#contentBody[itemtype='https://schema.org/Book']"

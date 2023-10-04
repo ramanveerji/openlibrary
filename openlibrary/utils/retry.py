@@ -26,9 +26,8 @@ class RetryStrategy:
 
             self.last_exception = e
 
-            if self.retry_count < self.max_retries:
-                self.retry_count += 1
-                time.sleep(self.delay)
-                return self(func)
-            else:
+            if self.retry_count >= self.max_retries:
                 raise MaxRetriesExceeded(self.last_exception)
+            self.retry_count += 1
+            time.sleep(self.delay)
+            return self(func)

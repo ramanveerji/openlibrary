@@ -44,7 +44,4 @@ class GZipMiddleware:
             return start_response(status, headers)
 
         data = self.app(environ, new_start_response)
-        if response.compress:
-            return [compress(b"".join(data), 9)]
-        else:
-            return data
+        return [compress(b"".join(data), 9)] if response.compress else data

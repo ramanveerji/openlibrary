@@ -20,7 +20,7 @@ class TestSharing:
         browser.quit()
 
     def test_open_graph_metadata_on_author(self, browser):
-        url = self.host + '/authors/OL1518080A/Lawrence_Lessig'
+        url = f'{self.host}/authors/OL1518080A/Lawrence_Lessig'
         browser.visit(url)
         assert browser.is_element_present_by_css(
             "meta[property='og:title'][content*='Lawrence Lessig']"
@@ -46,7 +46,7 @@ class TestSharing:
         assert browser.is_element_present_by_css("a[href*='twitter.com/intent/tweet']")
 
     def test_open_graph_metadata_on_work(self, browser):
-        url = self.host + '/works/OL6037022W/Remix'
+        url = f'{self.host}/works/OL6037022W/Remix'
         browser.visit(url)
         assert browser.is_element_present_by_css(
             "meta[property='og:title'][content*='Remix']"
@@ -72,7 +72,7 @@ class TestSharing:
         assert browser.is_element_present_by_css("a[href*='twitter.com/intent/tweet']")
 
     def test_open_graph_metadata_on_edition(self, browser):
-        url = self.host + '/books/OL24218235M/Remix'
+        url = f'{self.host}/books/OL24218235M/Remix'
         browser.visit(url)
         assert browser.is_element_present_by_css(
             "meta[property='og:title'][content*='Remix']"
@@ -99,7 +99,7 @@ class TestSharing:
 
     def test_open_graph_metadata_on_list(self, browser):
         """Assumes that one list has been created with Remix as its entry"""
-        browser.visit(self.host + '/lists')
+        browser.visit(f'{self.host}/lists')
         browser.find_by_css('.changeHistory a').first.click()
         assert browser.is_element_present_by_css(
             "meta[property='og:title'][content*='Lists']"

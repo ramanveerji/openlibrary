@@ -22,12 +22,11 @@ class Object:
 
     def repr(self):
         try:
-            if isinstance(self.obj, (dict, web.threadeddict)):
-                from infogami.infobase.utils import prepr
-
-                return prepr(self.obj)
-            else:
+            if not isinstance(self.obj, (dict, web.threadeddict)):
                 return repr(self.obj)
+            from infogami.infobase.utils import prepr
+
+            return prepr(self.obj)
         except:
             return "failed"
 
@@ -44,9 +43,6 @@ class Object:
                     if getattr(r, "__dict__", None) is o:
                         o = r
                         break
-            elif isinstance(o, dict):  # other dict types
-                name = web.dictfind(o, self.obj)
-
             if not isinstance(name, str):
                 name = None
 
@@ -58,12 +54,8 @@ class Object:
 
         _dict = getattr(self.obj, "__dict__", None)
         if _dict:
-            for k, v in self.obj.__dict__.items():
-                d.append(Object(v, name=k))
-
-        for o in gc.get_referents(self.obj):
-            if o is not _dict:
-                d.append(Object(o))
+            d.extend(Object(v, name=k) for k, v in self.obj.__dict__.items())
+        d.extend(Object(o) for o in gc.get_referents(self.obj) if o is not _dict)
         return d
 
 
@@ -124,11 +116,11 @@ class _memory_id:
 
     def get_object(self, _id):
         for obj in memory.get_objects():
-            if str(id(obj)) == _id:
+            if id(obj) == _id:
                 return Object(obj)
 
     def GET(self, _id):
-        obj = self.get_object(_id)
-        if not obj:
+        if obj := self.get_object(_id):
+            return render_template("admin/memory/object", obj)
+        else:
             raise web.notfound()
-        return render_template("admin/memory/object", obj)

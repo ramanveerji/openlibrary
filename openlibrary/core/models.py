@@ -56,7 +56,7 @@ class Image:
     def info(self):
         url = f'{get_coverstore_url()}/{self.category}/id/{self.id}.json'
         if url.startswith("//"):
-            url = "http:" + url
+            url = f"http:{url}"
         try:
             d = requests.get(url).json()
             d['created'] = parse_datetime(d['created'])
@@ -103,7 +103,7 @@ class Thing(client.Thing):
 
         return history
 
-    @cache.memoize(engine="memcache", key=lambda self: ("d" + self.key, "h"))
+    @cache.memoize(engine="memcache", key=lambda self: (f"d{self.key}", "h"))
     def _get_history_preview(self):
         h = {}
         if self.revision < 5:
@@ -130,10 +130,7 @@ class Thing(client.Thing):
     def get_most_recent_change(self):
         """Returns the most recent change."""
         preview = self.get_history_preview()
-        if preview.recent:
-            return preview.recent[0]
-        else:
-            return preview.initial[0]
+        return preview.recent[0] if preview.recent else preview.initial[0]
 
     def prefetch(self):
         """Prefetch all the anticipated data."""
@@ -145,11 +142,11 @@ class Thing(client.Thing):
     def _make_url(self, label, suffix, relative=True, **params):
         """Make url of the form $key/$label$suffix?$params."""
         if label is not None:
-            u = self.key + "/" + urlsafe(label) + suffix
+            u = f"{self.key}/{urlsafe(label)}{suffix}"
         else:
             u = self.key + suffix
         if params:
-            u += '?' + urllib.parse.urlencode(params)
+            u += f'?{urllib.parse.urlencode(params)}'
         if not relative:
             u = _get_ol_base_url() + u
         return u
@@ -185,7 +182,7 @@ class Thing(client.Thing):
             lists = safesort(lists, reverse=True, key=lambda list: list.last_modified)
         return lists
 
-    @cache.memoize(engine="memcache", key=lambda self: ("d" + self.key, "l"))
+    @cache.memoize(engine="memcache", key=lambda self: (f"d{self.key}", "l"))
     def _get_lists_cached(self):
         return self._get_lists_uncached(limit=50, offset=0)
 
@@ -218,7 +215,7 @@ class Edition(Thing):
         return self.title or "untitled"
 
     def __repr__(self):
-        return "<Edition: %s>" % repr(self.title)
+        return f"<Edition: {repr(self.title)}>"
 
     __str__ = __repr__
 
@@ -265,17 +262,15 @@ class Edition(Thing):
             d['daisy_only'] = True
 
             collections = self.get_ia_collections()
-            borrowable = self.in_borrowable_collection()
-
-            if borrowable:
+            if borrowable := self.in_borrowable_collection():
                 d['borrow_url'] = self.url("/borrow")
-                key = "ebooks" + self.key
+                key = f"ebooks{self.key}"
                 doc = self._site.store.get(key) or {}
                 # caution, solr borrow status may be stale!
                 d['borrowed'] = doc.get("borrowed") == "true"
                 d['daisy_only'] = False
             elif 'printdisabled' not in collections:
-                d['read_url'] = "https://archive.org/stream/%s" % self.ocaid
+                d['read_url'] = f"https://archive.org/stream/{self.ocaid}"
                 d['daisy_only'] = False
         return d
 
@@ -348,9 +343,7 @@ class Edition(Thing):
         """
         if self.ocaid:
             metadata = self.get_ia_meta_fields()
-            # The _filenames field is set by ia.get_metadata function
-            filenames = metadata.get("_filenames")
-            if filenames:
+            if filenames := metadata.get("_filenames"):
                 filename = next((f for f in filenames if f.endswith(suffix)), None)
             else:
                 # filenames is not in cache.
@@ -385,18 +378,16 @@ class Edition(Thing):
         # Attempt to fetch book from OL
         for isbn in [isbn13, isbn10]:
             if isbn:
-                matches = web.ctx.site.things(
-                    {"type": "/type/edition", 'isbn_%s' % len(isbn): isbn}
-                )
-                if matches:
+                if matches := web.ctx.site.things(
+                    {"type": "/type/edition", f'isbn_{len(isbn)}': isbn}
+                ):
                     return web.ctx.site.get(matches[0])
 
         # Attempt to create from amazon, then fetch from OL
         retries = 5 if retry else 0
-        key = (isbn10 or isbn13) and create_edition_from_amazon_metadata(
+        if key := (isbn10 or isbn13) and create_edition_from_amazon_metadata(
             isbn10 or isbn13, retries=retries
-        )
-        if key:
+        ):
             return web.ctx.site.get(key)
 
     def is_ia_scan(self):
@@ -434,13 +425,13 @@ class Work(Thing):
         return self.title or "untitled"
 
     def __repr__(self):
-        return "<Work: %s>" % repr(self.key)
+        return f"<Work: {repr(self.key)}>"
 
     __str__ = __repr__
 
     @property  # type: ignore[misc]
     @cache.method_memoize
-    @cache.memoize(engine="memcache", key=lambda self: ("d" + self.key, "e"))
+    @cache.memoize(engine="memcache", key=lambda self: (f"d{self.key}", "e"))
     def edition_count(self):
         return self._site._request("/count_editions_by_work", data={"key": self.key})
 
@@ -451,15 +442,13 @@ class Work(Thing):
         if not username:
             return None
         work_id = extract_numeric_id_from_olid(self.key)
-        rating = Ratings.get_users_rating_for_work(username, work_id)
-        return rating
+        return Ratings.get_users_rating_for_work(username, work_id)
 
     def get_users_read_status(self, username):
         if not username:
             return None
         work_id = extract_numeric_id_from_olid(self.key)
-        status_id = Bookshelves.get_users_read_status_of_work(username, work_id)
-        return status_id
+        return Bookshelves.get_users_read_status_of_work(username, work_id)
 
     def get_users_notes(self, username, edition_olid=None):
         if not username:
@@ -669,7 +658,7 @@ class Work(Thing):
         fixed = 0
         batch = 0
         pos = start_offset
-        grace_date = datetime.today() - timedelta(days=grace_period_days)
+        grace_date = datetime.now() - timedelta(days=grace_period_days)
 
         go = True
         while go:
@@ -725,7 +714,7 @@ class Author(Thing):
         return self.name or "unnamed"
 
     def __repr__(self):
-        return "<Author: %s>" % repr(self.key)
+        return f"<Author: {repr(self.key)}>"
 
     __str__ = __repr__
 
@@ -782,12 +771,12 @@ class User(Thing):
         return self.key.split("/")[-1]
 
     def preferences(self):
-        key = "%s/preferences" % self.key
+        key = f"{self.key}/preferences"
         prefs = web.ctx.site.get(key)
         return (prefs and prefs.dict().get('notifications')) or self.DEFAULT_PREFERENCES
 
     def save_preferences(self, new_prefs, msg='updating user preferences'):
-        key = '%s/preferences' % self.key
+        key = f'{self.key}/preferences'
         old_prefs = web.ctx.site.get(key)
         prefs = (old_prefs and old_prefs.dict()) or {
             'key': key,
@@ -800,7 +789,7 @@ class User(Thing):
 
     def is_usergroup_member(self, usergroup):
         if not usergroup.startswith('/usergroup/'):
-            usergroup = '/usergroup/%s' % usergroup
+            usergroup = f'/usergroup/{usergroup}'
         return usergroup in [g.key for g in self.usergroups]
 
     def has_cookie(self, name):
@@ -852,14 +841,14 @@ class User(Thing):
             lists = safesort(lists, reverse=True, key=lambda list: list.last_modified)
         return lists
 
-    @cache.memoize(engine="memcache", key=lambda self: ("d" + self.key, "l"))
+    @cache.memoize(engine="memcache", key=lambda self: (f"d{self.key}", "l"))
     def _get_lists_cached(self):
         return self._get_lists_uncached(limit=100, offset=0)
 
     def _get_lists_uncached(self, seed=None, limit=100, offset=0):
         q = {
             "type": "/type/list",
-            "key~": self.key + "/lists/*",
+            "key~": f"{self.key}/lists/*",
             "limit": limit,
             "offset": offset,
         }
@@ -936,7 +925,7 @@ class User(Thing):
         return ocaid and WaitingLoan.find(self.key, ocaid)
 
     def __repr__(self):
-        return "<User: %s>" % repr(self.key)
+        return f"<User: {repr(self.key)}>"
 
     __str__ = __repr__
 
@@ -948,7 +937,7 @@ class User(Thing):
         """
         extra_attrs = ''
         if cls:
-            extra_attrs += 'class="%s" ' % cls
+            extra_attrs += f'class="{cls}" '
         # Why nofollow?
         return f'<a rel="nofollow" href="{self.key}" {extra_attrs}>{web.net.htmlquote(self.displayname)}</a>'
 
@@ -989,7 +978,7 @@ class List(Thing, ListMixin):
 
         Each tag object will contain name and url fields.
         """
-        return [web.storage(name=t, url=self.key + "/tags/" + t) for t in self.tags]
+        return [web.storage(name=t, url=f"{self.key}/tags/{t}") for t in self.tags]
 
     def _get_subjects(self):
         """Returns list of subjects inferred from the seeds.
@@ -1015,10 +1004,9 @@ class List(Thing, ListMixin):
         index = self._index_of_seed(seed)
         if index >= 0:
             return False
-        else:
-            self.seeds = self.seeds or []
-            self.seeds.append(seed)
-            return True
+        self.seeds = self.seeds or []
+        self.seeds.append(seed)
+        return True
 
     def remove_seed(self, seed):
         """Removes a seed for the list."""
@@ -1051,7 +1039,7 @@ class UserGroup(Thing):
         :rtype: UserGroup | None
         """
         if not key.startswith('/usergroup/'):
-            key = "/usergroup/%s" % key
+            key = f"/usergroup/{key}"
         return web.ctx.site.get(key)
 
     def add_user(self, userkey: str) -> None:
@@ -1065,7 +1053,7 @@ class UserGroup(Thing):
 
         # Make sure userkey not already in group members:
         members = self.get('members', [])
-        if not any(userkey == member['key'] for member in members):
+        if all(userkey != member['key'] for member in members):
             members.append({'key': userkey})
             self.members = members
             web.ctx.site.save(self.dict(), f"Adding {userkey} to {self.key}")
@@ -1103,13 +1091,13 @@ class Subject(web.storage):
     def get_seed(self):
         seed = self.key.split("/")[-1]
         if seed.split(":")[0] not in ["place", "person", "time"]:
-            seed = "subject:" + seed
+            seed = f"subject:{seed}"
         return seed
 
     def url(self, suffix="", relative=True, **params):
         u = self.key + suffix
         if params:
-            u += '?' + urllib.parse.urlencode(params)
+            u += f'?{urllib.parse.urlencode(params)}'
         if not relative:
             u = _get_ol_base_url() + u
         return u
@@ -1121,8 +1109,7 @@ class Subject(web.storage):
 
     def get_default_cover(self):
         for w in self.works:
-            cover_id = w.get("cover_id")
-            if cover_id:
+            if cover_id := w.get("cover_id"):
                 return Image(web.ctx.site, "b", cover_id)
 
 

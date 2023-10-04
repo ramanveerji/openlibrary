@@ -23,7 +23,7 @@ class contact(delegate.page):
         email = user and user.email
 
         hashed_ip = hashlib.md5(web.ctx.ip.encode('utf-8')).hexdigest()
-        has_emailed_recently = get_memcache().get('contact-POST-%s' % hashed_ip)
+        has_emailed_recently = get_memcache().get(f'contact-POST-{hashed_ip}')
         recaptcha = has_emailed_recently and get_recaptcha()
         return render_template("support", email=email, url=i.path, recaptcha=recaptcha)
 
@@ -40,8 +40,7 @@ class contact(delegate.page):
             return ""
 
         hashed_ip = hashlib.md5(web.ctx.ip.encode('utf-8')).hexdigest()
-        has_emailed_recently = get_memcache().get('contact-POST-%s' % hashed_ip)
-        if has_emailed_recently:
+        if has_emailed_recently := get_memcache().get(f'contact-POST-{hashed_ip}'):
             recap = get_recaptcha()
             if recap and not recap.validate():
                 return render_template(
@@ -59,7 +58,7 @@ class contact(delegate.page):
         else:
             assignee = default_assignees.get("default", "openlibrary@archive.org")
         stats.increment("ol.support.all")
-        subject = "Support case *%s*" % topic
+        subject = f"Support case *{topic}*"
 
         url = web.ctx.home + url
         displayname = user and user.get_name() or ""
@@ -68,7 +67,7 @@ class contact(delegate.page):
         message = SUPPORT_EMAIL_TEMPLATE % locals()
         sendmail(email, assignee, subject, message)
 
-        get_memcache().set('contact-POST-%s' % hashed_ip, "true", time=15 * MINUTE_SECS)
+        get_memcache().set(f'contact-POST-{hashed_ip}', "true", time=15 * MINUTE_SECS)
         return render_template("email/case_created", assignee)
 
 

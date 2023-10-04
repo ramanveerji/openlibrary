@@ -61,8 +61,7 @@ class admin(delegate.page):
             return self.handle(admin_index)
 
         for t in admin_tasks:
-            m = web.re_compile('^' + t.path + '$').match(web.ctx.path)
-            if m:
+            if m := web.re_compile(f'^{t.path}$').match(web.ctx.path):
                 return self.handle(t.cls, m.groups(), librarians=t.librarians)
         raise web.notfound()
 
@@ -70,24 +69,24 @@ class admin(delegate.page):
         # Use admin theme
         context.cssfile = "admin"
 
-        m = getattr(cls(), web.ctx.method, None)
-        if not m:
+        if not (m := getattr(cls(), web.ctx.method, None)):
             raise web.nomethod(cls=cls)
-        else:
-            if (
-                context.user
-                and context.user.is_usergroup_member('/usergroup/librarians')
-                and web.ctx.path == '/admin/solr'
-            ):
-                return m(*args)
-            if self.is_admin() or (
+        if (
+            context.user
+            and context.user.is_usergroup_member('/usergroup/librarians')
+            and web.ctx.path == '/admin/solr'
+        ):
+            return m(*args)
+        return (
+            m(*args)
+            if self.is_admin()
+            or (
                 librarians
                 and context.user
                 and context.user.is_usergroup_member('/usergroup/super-librarians')
-            ):
-                return m(*args)
-            else:
-                return render.permission_denied(web.ctx.path, "Permission denied.")
+            )
+            else render.permission_denied(web.ctx.path, "Permission denied.")
+        )
 
     GET = POST = delegate
 
@@ -109,14 +108,14 @@ class gitpull:
         root = os.path.normpath(root)
 
         p = subprocess.Popen(
-            'cd %s && git pull' % root,
+            f'cd {root} && git pull',
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
         out = p.stdout.read()
         p.wait()
-        return '<pre>' + web.websafe(out) + '</pre>'
+        return f'<pre>{web.websafe(out)}</pre>'
 
 
 class reload:
@@ -131,12 +130,12 @@ class reload:
     def reload(self, servers):
         for s in servers:
             s = web.rstrips(s, "/") + "/_reload"
-            yield "<h3>" + s + "</h3>"
+            yield f"<h3>{s}</h3>"
             try:
                 response = requests.get(s).text
-                yield "<p><pre>" + response[:100] + "</pre></p>"
+                yield f"<p><pre>{response[:100]}</pre></p>"
             except:
-                yield "<p><pre>%s</pre></p>" % traceback.format_exc()
+                yield f"<p><pre>{traceback.format_exc()}</pre></p>"
 
 
 @web.memoize
@@ -177,9 +176,8 @@ class people:
         i = web.input(email=None)
 
         if i.email:
-            account = accounts.find(email=i.email)
-            if account:
-                raise web.seeother("/admin/people/" + account.username)
+            if account := accounts.find(email=i.email):
+                raise web.seeother(f"/admin/people/{account.username}")
         return render_template("admin/people/index", email=i.email)
 
 
@@ -193,7 +191,7 @@ class add_work_to_staff_picks:
         work_ids = i.work_id.split(',')
         subjects = i.subjects.split(',')
         for work_id in work_ids:
-            work = web.ctx.site.get('/works/%s' % work_id)
+            work = web.ctx.site.get(f'/works/{work_id}')
             editions = work.editions
             ocaids = [edition.ocaid for edition in editions if edition.ocaid]
             results[work_id] = {}
@@ -285,10 +283,7 @@ class sync_ia_ol(delegate.page):
         acct = accounts.OpenLibraryAccount.get(email=auth.get('username'))
         user = acct.get_user() if acct else None
 
-        if not user or (user and not user.is_usergroup_member('/usergroup/ia')):
-            return False
-
-        return True
+        return bool(user and (not user or user.is_usergroup_member('/usergroup/ia')))
 
     def validate_input(self, i):
         """Returns True if the request is valid.
@@ -315,10 +310,9 @@ class sync_ia_ol(delegate.page):
 
 class people_view:
     def GET(self, key):
-        account = accounts.find(username=key) or accounts.find(email=key)
-        if account:
+        if account := accounts.find(username=key) or accounts.find(email=key):
             if "@" in key:
-                raise web.seeother("/admin/people/" + account.username)
+                raise web.seeother(f"/admin/people/{account.username}")
             else:
                 return render_template('admin/people/view', account)
         else:
@@ -407,7 +401,7 @@ class people_view:
         raise web.seeother(web.ctx.path)
 
     def POST_resend_link(self, user):
-        key = "account/%s/verify" % user.username
+        key = f"account/{user.username}/verify"
         activation_link = web.ctx.site.store.get(key)
         del activation_link
         user.send_verification_email()
@@ -481,11 +475,10 @@ class people_view:
 
 class people_edits:
     def GET(self, username):
-        account = accounts.find(username=username)
-        if not account:
-            raise web.notfound()
-        else:
+        if account := accounts.find(username=username):
             return render_template("admin/people/edits", account)
+        else:
+            raise web.notfound()
 
     def POST(self, username):
         i = web.input(changesets=[], comment="Revert", action="revert")
@@ -543,7 +536,7 @@ class ipaddress_view:
 class stats:
     def GET(self, today):
         json = web.ctx.site._conn.request(
-            web.ctx.site.name, '/get', 'GET', {'key': '/admin/stats/' + today}
+            web.ctx.site.name, '/get', 'GET', {'key': f'/admin/stats/{today}'}
         )
         return delegate.RawText(json)
 
@@ -554,9 +547,9 @@ class stats:
         raise web.seeother(web.ctx.path)
 
     def get_stats(self, today):
-        stats = web.ctx.site._request("/stats/" + today)
+        stats = web.ctx.site._request(f"/stats/{today}")
 
-        key = '/admin/stats/' + today
+        key = f'/admin/stats/{today}'
         doc = web.ctx.site.new(key, {'key': key, 'type': {'key': '/type/object'}})
         doc.edits = {
             'human': stats.edits - stats.edits_by_bots,
@@ -631,12 +624,12 @@ def get_counts():
 
 def get_admin_stats():
     def f(dates):
-        keys = ["/admin/stats/" + date.isoformat() for date in dates]
+        keys = [f"/admin/stats/{date.isoformat()}" for date in dates]
         docs = web.ctx.site.get_many(keys)
         return g(docs)
 
     def has_doc(date):
-        return bool(web.ctx.site.get('/admin/stats/' + date.isoformat()))
+        return bool(web.ctx.site.get(f'/admin/stats/{date.isoformat()}'))
 
     def g(docs):
         return {
@@ -729,12 +722,8 @@ class loans_admin:
     def POST(self):
         i = web.input(action=None)
 
-        # Sanitize
-        action = None
         actions = ['updateall']
-        if i.action in actions:
-            action = i.action
-
+        action = i.action if i.action in actions else None
         if action == 'updateall':
             borrow.update_all_loan_status()
         raise web.seeother(web.ctx.path)  # Redirect to avoid form re-post on re-load
@@ -759,11 +748,7 @@ class inspect:
         i = web.input(key=None, type=None, name=None, value=None)
 
         if i.key:
-            doc = web.ctx.site.store.get(i.key)
-            if doc:
-                docs = [doc]
-            else:
-                docs = []
+            docs = [doc] if (doc := web.ctx.site.store.get(i.key)) else []
         else:
             docs = web.ctx.site.store.values(
                 type=i.type or None,
@@ -783,7 +768,7 @@ class inspect:
         keys = [k.strip() for k in i["keys"].split() if k.strip()]
         if i.action == "delete":
             mc.delete_multi(keys)
-            add_flash_message("info", "Deleted %s keys from memcache" % len(keys))
+            add_flash_message("info", f"Deleted {len(keys)} keys from memcache")
             return render_template("admin/inspect/memcache", [], {})
         else:
             mapping = keys and mc.get_multi(keys)
@@ -990,7 +975,7 @@ def setup():
     from openlibrary.plugins.admin import mem
 
     for p in [mem._memory, mem._memory_type, mem._memory_id]:
-        register_admin_page('/admin' + p.path, p)
+        register_admin_page(f'/admin{p.path}', p)
 
     public(get_admin_stats)
     public(get_blocked_ips)

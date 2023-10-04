@@ -91,10 +91,10 @@ def set_solr_next(val: bool):
 
 
 def extract_edition_olid(key: str) -> str:
-    m = re_edition_key.match(key)
-    if not m:
+    if m := re_edition_key.match(key):
+        return m.group(1)
+    else:
         raise ValueError(f'Invalid key: {key}')
-    return m.group(1)
 
 
 def get_ia_collection_and_box_id(ia: str) -> Optional['bp.IALiteMetadata']:
@@ -144,9 +144,7 @@ class AuthorRedirect(Exception):
 
 
 def strip_bad_char(s):
-    if not isinstance(s, str):
-        return s
-    return re_bad_char.sub('', s)
+    return s if not isinstance(s, str) else re_bad_char.sub('', s)
 
 
 def str_to_key(s):
@@ -198,10 +196,7 @@ def pick_number_of_pages_median(editions: list[dict]) -> int | None:
         pages for e in editions if (pages := to_int(e.get('number_of_pages')))
     ]
 
-    if number_of_pages:
-        return ceil(median(number_of_pages))
-    else:
-        return None
+    return ceil(median(number_of_pages)) if number_of_pages else None
 
 
 def get_work_subjects(w):
@@ -304,8 +299,7 @@ class SolrProcessor:
         :rtype: list[dict]
         """
         for e in editions:
-            pub_year = self.get_pub_year(e)
-            if pub_year:
+            if pub_year := self.get_pub_year(e):
                 e['pub_year'] = pub_year
 
             ia = None
@@ -460,8 +454,7 @@ class SolrProcessor:
         :rtype: str or None
         """
         if pub_date := e.get('publish_date', None):
-            m = re_year.search(pub_date)
-            if m:
+            if m := re_year.search(pub_date):
                 return m.group(1)
 
     def get_subject_counts(self, w):
@@ -772,7 +765,7 @@ def build_data2(
         )
     )
     if w['title'] == '__None__':
-        logger.warning('Work missing title %s' % w['key'])
+        logger.warning(f"Work missing title {w['key']}")
 
     p = SolrProcessor(resolve_redirects)
 
@@ -895,12 +888,12 @@ def build_data2(
             continue
         subjects_k_keys = list(subjects[k])
         add_field_list(doc, k, subjects_k_keys)
-        add_field_list(doc, k + '_facet', subjects_k_keys)
+        add_field_list(doc, f'{k}_facet', subjects_k_keys)
         subject_keys = [str_to_key(s) for s in subjects_k_keys]
-        add_field_list(doc, k + '_key', subject_keys)
+        add_field_list(doc, f'{k}_key', subject_keys)
 
     for k in sorted(identifiers):
-        add_field_list(doc, 'id_' + k, identifiers[k])
+        add_field_list(doc, f'id_{k}', identifiers[k])
 
     if ia_loaded_id:
         add_field_list(doc, 'ia_loaded_id', ia_loaded_id)
@@ -995,8 +988,7 @@ class BaseDocBuilder:
 
     def get_subject_key(self, prefix, subject):
         if isinstance(subject, str):
-            key = prefix + self.re_subject.sub("_", subject.lower()).strip("_")
-            return key
+            return prefix + self.re_subject.sub("_", subject.lower()).strip("_")
 
 
 class SolrUpdateRequest:
@@ -1120,8 +1112,8 @@ def get_subject(key):
     else:
         subject_type = "subject"
 
-    search_field = "%s_key" % subject_type
-    facet_field = "%s_facet" % subject_type
+    search_field = f"{subject_type}_key"
+    facet_field = f"{subject_type}_facet"
 
     # Handle upper case or any special characters that may be present
     subject_key = str_to_key(subject_key)
@@ -1144,9 +1136,9 @@ def get_subject(key):
     work_count = result['response']['numFound']
     facets = result['facet_counts']['facet_fields'].get(facet_field, [])
 
-    names = [name for name, count in facets if str_to_key(name) == subject_key]
-
-    if names:
+    if names := [
+        name for name, count in facets if str_to_key(name) == subject_key
+    ]:
         name = names[0]
     else:
         name = subject_key.replace("_", " ")
@@ -1228,9 +1220,7 @@ async def update_work(work: dict) -> list[SolrUpdateRequest]:
             logger.error("failed to update work %s", work['key'], exc_info=True)
         else:
             if solr_doc is not None:
-                iaids = solr_doc.get('ia') or []
-                # Delete all ia:foobar keys
-                if iaids:
+                if iaids := solr_doc.get('ia') or []:
                     requests.append(
                         DeleteRequest([f"/works/ia:{iaid}" for iaid in iaids])
                     )
@@ -1272,22 +1262,22 @@ async def update_author(
         raise
 
     facet_fields = ['subject', 'time', 'person', 'place']
-    base_url = get_solr_base_url() + '/select'
+    base_url = f'{get_solr_base_url()}/select'
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
             base_url,
-            params=[  # type: ignore[arg-type]
+            params=[
                 ('wt', 'json'),
                 ('json.nl', 'arrarr'),
-                ('q', 'author_key:%s' % author_id),
+                ('q', f'author_key:{author_id}'),
                 ('sort', 'edition_count desc'),
                 ('rows', 1),
                 ('fl', 'title,subtitle'),
                 ('facet', 'true'),
                 ('facet.mincount', 1),
             ]
-            + [('facet.field', '%s_facet' % field) for field in facet_fields],
+            + [('facet.field', f'{field}_facet') for field in facet_fields],
         )
         reply = response.json()
     work_count = reply['response']['numFound']
@@ -1299,8 +1289,10 @@ async def update_author(
             top_work += ': ' + docs[0]['subtitle']
     all_subjects = []
     for f in facet_fields:
-        for s, num in reply['facet_counts']['facet_fields'][f + '_facet']:
-            all_subjects.append((num, s))
+        all_subjects.extend(
+            (num, s)
+            for s, num in reply['facet_counts']['facet_fields'][f'{f}_facet']
+        )
     all_subjects.sort(reverse=True)
     top_subjects = [s for num, s in all_subjects[:10]]
     d = cast(
@@ -1314,8 +1306,7 @@ async def update_author(
     if a.get('name', None):
         d['name'] = a['name']
 
-    alternate_names = a.get('alternate_names', [])
-    if alternate_names:
+    if alternate_names := a.get('alternate_names', []):
         d['alternate_names'] = alternate_names
 
     if a.get('birth_date', None):
@@ -1332,17 +1323,7 @@ async def update_author(
 
     solr_requests: list[SolrUpdateRequest] = []
     if handle_redirects:
-        redirect_keys = data_provider.find_redirects(akey)
-        # redirects = ''.join('<id>{}</id>'.format(k) for k in redirect_keys)
-        # q = {'type': '/type/redirect', 'location': akey}
-        # try:
-        #     redirects = ''.join('<id>%s</id>' % re_author_key.match(r['key']).group(1) for r in query_iter(q))
-        # except AttributeError:
-        #     logger.error('AssertionError: redirects: %r', [r['key'] for r in query_iter(q)])
-        #     raise
-        # if redirects:
-        #    solr_requests.append('<delete>' + redirects + '</delete>')
-        if redirect_keys:
+        if redirect_keys := data_provider.find_redirects(akey):
             solr_requests.append(DeleteRequest(redirect_keys))
     solr_requests.append(AddRequest(d))
     return solr_requests

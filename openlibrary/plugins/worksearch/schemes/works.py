@@ -213,7 +213,7 @@ class WorkSearchScheme(SearchScheme):
         if not has_search_fields:
             # If there are no search fields, maybe we want just an isbn?
             isbn = normalize_isbn(user_query)
-            if isbn and len(isbn) in (10, 13):
+            if isbn and len(isbn) in {10, 13}:
                 q_tree = luqum_parser(f'isbn:({isbn})')
 
         return q_tree
@@ -222,8 +222,7 @@ class WorkSearchScheme(SearchScheme):
         q_list = []
         if 'author' in params:
             v = params['author'].strip()
-            m = re_author_key.search(v)
-            if m:
+            if m := re_author_key.search(v):
                 q_list.append(f"author_key:({m.group(1)})")
             else:
                 v = fully_escape_query(v)
@@ -250,9 +249,7 @@ class WorkSearchScheme(SearchScheme):
         ]
 
         if params.get('isbn'):
-            q_list.append(
-                'isbn:(%s)' % (normalize_isbn(params['isbn']) or params['isbn'])
-            )
+            q_list.append(f"isbn:({normalize_isbn(params['isbn']) or params['isbn']})")
 
         return ' AND '.join(q_list)
 
@@ -490,8 +487,7 @@ def lcc_transform(sf: luqum.tree.SearchField):
     # for proper range search
     val = sf.children[0]
     if isinstance(val, luqum.tree.Range):
-        normed_range = normalize_lcc_range(val.low.value, val.high.value)
-        if normed_range:
+        if normed_range := normalize_lcc_range(val.low.value, val.high.value):
             val.low.value, val.high.value = normed_range
     elif isinstance(val, luqum.tree.Word):
         if '*' in val.value and not val.value.startswith('*'):
@@ -500,22 +496,17 @@ def lcc_transform(sf: luqum.tree.SearchField):
             parts = val.value.split('*', 1)
             lcc_prefix = normalize_lcc_prefix(parts[0])
             val.value = (lcc_prefix or parts[0]) + '*' + parts[1]
-        else:
-            normed = short_lcc_to_sortable_lcc(val.value.strip('"'))
-            if normed:
-                val.value = normed
+        elif normed := short_lcc_to_sortable_lcc(val.value.strip('"')):
+            val.value = normed
     elif isinstance(val, luqum.tree.Phrase):
-        normed = short_lcc_to_sortable_lcc(val.value.strip('"'))
-        if normed:
+        if normed := short_lcc_to_sortable_lcc(val.value.strip('"')):
             val.value = f'"{normed}"'
     elif (
         isinstance(val, luqum.tree.Group)
         and isinstance(val.expr, luqum.tree.UnknownOperation)
         and all(isinstance(c, luqum.tree.Word) for c in val.expr.children)
     ):
-        # treat it as a string
-        normed = short_lcc_to_sortable_lcc(str(val.expr))
-        if normed:
+        if normed := short_lcc_to_sortable_lcc(str(val.expr)):
             if ' ' in normed:
                 sf.expr = luqum.tree.Phrase(f'"{normed}"')
             else:
@@ -531,7 +522,7 @@ def ddc_transform(sf: luqum.tree.SearchField):
         val.low.value = normed_range[0] or val.low
         val.high.value = normed_range[1] or val.high
     elif isinstance(val, luqum.tree.Word) and val.value.endswith('*'):
-        return normalize_ddc_prefix(val.value[:-1]) + '*'
+        return f'{normalize_ddc_prefix(val.value[:-1])}*'
     elif isinstance(val, (luqum.tree.Word, luqum.tree.Phrase)):
         if normed := normalize_ddc(val.value.strip('"')):
             val.value = normed
@@ -542,8 +533,7 @@ def ddc_transform(sf: luqum.tree.SearchField):
 def isbn_transform(sf: luqum.tree.SearchField):
     field_val = sf.children[0]
     if isinstance(field_val, luqum.tree.Word) and '*' not in field_val.value:
-        isbn = normalize_isbn(field_val.value)
-        if isbn:
+        if isbn := normalize_isbn(field_val.value):
             field_val.value = isbn
     else:
         logger.warning(f"Unexpected isbn SearchField value type: {type(field_val)}")
@@ -557,7 +547,7 @@ def ia_collection_s_transform(sf: luqum.tree.SearchField):
     val = sf.children[0]
     if isinstance(val, luqum.tree.Word):
         if val.value.startswith('*'):
-            val.value = '*' + val.value
+            val.value = f'*{val.value}'
         if val.value.endswith('*'):
             val.value += '*'
     else:

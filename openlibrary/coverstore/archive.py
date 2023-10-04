@@ -312,7 +312,7 @@ class Cover(web.Storage):
     @classmethod
     def get_cover_url(cls, cover_id, size="", ext="zip", protocol="https"):
         pcid = "%010d" % int(cover_id)
-        img_filename = item_file = f"{pcid}{'-' + size.upper() if size else ''}.jpg"
+        img_filename = item_file = f"{pcid}{f'-{size.upper()}' if size else ''}.jpg"
         item_id, batch_id = cls.id_to_item_and_batch_id(cover_id)
         relpath = Batch.get_relpath(item_id, batch_id, size=size, ext=ext)
         path = os.path.join(relpath, img_filename)
@@ -461,8 +461,8 @@ class ZipManager:
 
         # for {cid}-[SML].jpg
         if '-' in name:
-            size = name[len(cid + '-') :][0].lower()
-            zipname = size + "_" + zipname
+            size = name[len(f'{cid}-'):][0].lower()
+            zipname = f"{size}_{zipname}"
         else:
             size = ""
 
@@ -506,6 +506,5 @@ class ZipManager:
     @classmethod
     def get_last_file_in_zip(cls, zip_file_path):
         with zipfile.ZipFile(zip_file_path, 'r') as zip_file:
-            file_list = zip_file.namelist()
-            if file_list:
+            if file_list := zip_file.namelist():
                 return max(file_list)

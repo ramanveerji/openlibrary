@@ -39,14 +39,10 @@ def evaluate_and_store_stat(name, stat, summary):
         if f(**stat):
             if "time" in stat:
                 graphite_stats.put(name, summary[stat.time]["time"] * 100)
-            elif "count" in stat:
-                # print "Storing count for key %s"%stat.count
-                # XXX-Anand: where is the code to update counts?
-                pass
-            else:
+            elif "count" not in stat:
                 logger.warning("No storage item specified for stat %s", name)
     except Exception as k:
-        logger.warning("Error while storing stats (%s). Complete traceback follows" % k)
+        logger.warning(f"Error while storing stats ({k}). Complete traceback follows")
         logger.warning(traceback.format_exc())
 
 
@@ -70,7 +66,7 @@ def stats_hook():
             web.header("X-OL-Stats", format_stats(stats_summary))
     except Exception as e:
         # don't let errors in stats collection break the app.
-        print(str(e), file=web.debug)
+        print(e, file=web.debug)
 
     # This name is misleading. It gets incremented for more than just pages.
     # E.g. *.json requests (even ajax), image requests. Although I can't
@@ -94,13 +90,13 @@ def stats_hook():
     for name, value in stats_summary.items():
         name = name.replace(".", "_")
         time = value.get("time", 0.0) * 1000
-        key = 'ol.' + name
+        key = f'ol.{name}'
         graphite_stats.put(key, time)
 
 
 def format_stats(stats):
     s = " ".join("%s %d %0.03f" % entry for entry in process_stats(stats))
-    return '"%s"' % s
+    return f'"{s}"'
 
 
 labels = {
@@ -150,7 +146,7 @@ def _get_path_page_name() -> str:
 
     result = pageClass.__name__
     if hasattr(pageClass, 'encoding') and not result.endswith(pageClass.encoding):
-        result += '_' + pageClass.encoding
+        result += f'_{pageClass.encoding}'
 
     return result
 
@@ -202,12 +198,14 @@ class GraphiteRequestStats:
 
         if self.end is not None:
             self.duration = (self.end - self.start) * 1000
-            self.time_bucket = 'LONG'
-            for upper in TIME_BUCKETS:
-                if self.duration < upper:
-                    self.time_bucket = '%dms' % upper
-                    break
-
+            self.time_bucket = next(
+                (
+                    '%dms' % upper
+                    for upper in TIME_BUCKETS
+                    if self.duration < upper
+                ),
+                'LONG',
+            )
         if stats_filters.loggedin():
             self.user = 'logged_in'
 
@@ -221,7 +219,7 @@ class GraphiteRequestStats:
                 self.response_code,
                 self.user,
                 self.path_level_one,
-                'class_' + self.path_page_name,
+                f'class_{self.path_page_name}',
                 self.time_bucket,
                 'count',
             ]
@@ -262,17 +260,17 @@ def increment_error_count(key: str) -> None:
     # log just filename, unless it's code.py (cause that's useless!)
     ol_file = path[1]
     if path[1] in ('code.py', 'index.html', 'edit.html', 'view.html'):
-        ol_file = os.path.split(path[0])[1] + '_' + _encode_key_part(path[1])
+        ol_file = f'{os.path.split(path[0])[1]}_{_encode_key_part(path[1])}'
 
     metric_parts = [
         top_url_path,
-        'class_' + page_class,
+        f'class_{page_class}',
         ol_file,
         exception_type_name,
         'count',
     ]
     metric = '.'.join([_encode_key_part(p) for p in metric_parts])
-    graphite_stats.increment(key + '.' + metric)
+    graphite_stats.increment(f'{key}.{metric}')
 
 
 TEMPLATE_SYNTAX_ERROR_RE = re.compile(r"File '([^']+?)'")
@@ -297,8 +295,7 @@ def find_topmost_useful_file(
         tback = tback.tb_next
 
     if file_path.endswith('template.py') and hasattr(exception, 'args'):
-        m = TEMPLATE_SYNTAX_ERROR_RE.search(exception.args[1])
-        if m:
+        if m := TEMPLATE_SYNTAX_ERROR_RE.search(exception.args[1]):
             file_path = m.group(1)
 
     return file_path

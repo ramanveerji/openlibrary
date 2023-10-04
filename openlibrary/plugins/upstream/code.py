@@ -41,8 +41,8 @@ class static(delegate.page):
     path = "/images/.*"
 
     def GET(self):
-        host = 'https://%s' % web.ctx.host if 'openlibrary.org' in web.ctx.host else ''
-        raise web.seeother(host + '/static' + web.ctx.path)
+        host = f'https://{web.ctx.host}' if 'openlibrary.org' in web.ctx.host else ''
+        raise web.seeother(f'{host}/static{web.ctx.path}')
 
 
 class history(delegate.mode):
@@ -72,13 +72,12 @@ class edit(core.edit):
         editable_keys_re = web.re_compile(
             r"/(authors|books|works|people/[^/]+/lists)/OL.*"
         )
-        if editable_keys_re.match(key):
-            if page is None:
-                raise web.seeother(key)
-            else:
-                raise web.seeother(page.url(suffix="/edit"))
-        else:
+        if not editable_keys_re.match(key):
             return core.edit.GET(self, key)
+        if page is None:
+            raise web.seeother(key)
+        else:
+            raise web.seeother(page.url(suffix="/edit"))
 
     def POST(self, key):
         if web.re_compile('/(people/[^/]+)').match(key) and spamcheck.is_spam():
@@ -167,7 +166,7 @@ def vendor_js():
     )
     with open(path, 'rb') as in_file:
         digest = hashlib.md5(in_file.read()).hexdigest()
-    return '/static/upstream/js/vendor.js?v=' + digest
+    return f'/static/upstream/js/vendor.js?v={digest}'
 
 
 @web.memoize
@@ -195,9 +194,8 @@ class DynamicDocument:
         self.last_modified = None
 
     def update(self):
-        keys = web.ctx.site.things({'type': '/type/rawtext', 'key~': self.root + '/*'})
-        docs = sorted(web.ctx.site.get_many(keys), key=lambda doc: doc.key)
-        if docs:
+        keys = web.ctx.site.things({'type': '/type/rawtext', 'key~': f'{self.root}/*'})
+        if docs := sorted(web.ctx.site.get_many(keys), key=lambda doc: doc.key):
             self.last_modified = min(doc.last_modified for doc in docs)
             self._text = "\n\n".join(doc.get('body', '') for doc in docs)
         else:
@@ -226,6 +224,8 @@ def create_dynamic_document(url, prefix):
     else:
         content_type = "text/plain"
 
+
+
     class page(delegate.page):
         """Handler for serving the combined content."""
 
@@ -246,10 +246,11 @@ def create_dynamic_document(url, prefix):
                 return delegate.RawText(doc.get_text())
 
         def url(self):
-            return url + "?v=" + doc.md5()
+            return f"{url}?v={doc.md5()}"
 
         def reload(self):
             doc.update()
+
 
     class hook(client.hook):
         """Hook to update the DynamicDocument when any of the source pages is updated."""
@@ -259,8 +260,7 @@ def create_dynamic_document(url, prefix):
                 doc.update()
 
     # register the special page
-    delegate.pages[url] = {}
-    delegate.pages[url][None] = page
+    delegate.pages[url] = {None: page}
     return page
 
 
@@ -302,7 +302,7 @@ def user_can_revert_records():
 @public
 def get_document(key, limit_redirs=5):
     doc = None
-    for i in range(limit_redirs):
+    for _ in range(limit_redirs):
         doc = web.ctx.site.get(key)
         if doc is None:
             return None
@@ -326,7 +326,7 @@ class revert(delegate.mode):
 
         if not web.ctx.site.can_write(key) or not user_can_revert_records():
             return render.permission_denied(
-                web.ctx.fullpath, "Permission denied to edit " + key + "."
+                web.ctx.fullpath, f"Permission denied to edit {key}."
             )
 
         thing = web.ctx.site.get(key, i.v)
@@ -339,9 +339,8 @@ class revert(delegate.mode):
                 prev = web.ctx.site.get(thing.key, thing.revision - 1)
                 if prev.type.key in ["/type/delete", "/type/redirect"]:
                     return revert(prev)
-                else:
-                    prev._save("revert to revision %d" % prev.revision)
-                    return prev
+                prev._save("revert to revision %d" % prev.revision)
+                return prev
             elif thing.type.key == "/type/redirect":
                 redirect = web.ctx.site.get(thing.location)
                 if redirect and redirect.type.key not in [
@@ -349,10 +348,9 @@ class revert(delegate.mode):
                     "/type/redirect",
                 ]:
                     return redirect
-                else:
-                    # bad redirect. Try the previous revision
-                    prev = web.ctx.site.get(thing.key, thing.revision - 1)
-                    return revert(prev)
+                # bad redirect. Try the previous revision
+                prev = web.ctx.site.get(thing.key, thing.revision - 1)
+                return revert(prev)
             else:
                 return thing
 
@@ -361,14 +359,14 @@ class revert(delegate.mode):
                 return [process(v) for v in value]
             elif isinstance(value, client.Thing):
                 if value.key:
-                    if value.type.key in ['/type/delete', '/type/revert']:
-                        return revert(value)
-                    else:
-                        return value
-                else:
-                    for k in value:
-                        value[k] = process(value[k])
-                    return value
+                    return (
+                        revert(value)
+                        if value.type.key in ['/type/delete', '/type/revert']
+                        else value
+                    )
+                for k in value:
+                    value[k] = process(value[k])
+                return value
             else:
                 return value
 

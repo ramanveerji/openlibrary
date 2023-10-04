@@ -31,7 +31,7 @@ class Solr:
         'a\\[b\\]c'
         """
         chars = r'+-!(){}[]^"~*?:\\'
-        pattern = "([%s])" % re.escape(chars)
+        pattern = f"([{re.escape(chars)}])"
         return web.re_compile(pattern).sub(r'\\\1', query)
 
     def get(
@@ -178,15 +178,15 @@ class Solr:
             if isinstance(v, tuple):  # hack for supporting range
                 return f"[{escape(v[0])} TO {escape(v[1])}]"
             elif isinstance(v, list):  # one of
-                return "(%s)" % " OR ".join(escape_value(x) for x in v)
+                return f'({" OR ".join(escape_value(x) for x in v)})'
             else:
-                return '"%s"' % escape(v)
+                return f'"{escape(v)}"'
 
         if isinstance(query, dict):
             op = query.pop("_op", "AND")
             if op.upper() != "OR":
                 op = "AND"
-            op = " " + op + " "
+            op = f" {op} "
 
             q = op.join(f'{k}:{escape_value(v)}' for k, v in query.items())
         else:

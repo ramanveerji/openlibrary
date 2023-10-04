@@ -65,21 +65,25 @@ def init_plugin():
 
     # hook to add count functionality
     server.app.add_mapping(
-        r"/([^/]*)/count_editions_by_author", __name__ + ".count_editions_by_author"
+        r"/([^/]*)/count_editions_by_author",
+        f"{__name__}.count_editions_by_author",
     )
     server.app.add_mapping(
-        r"/([^/]*)/count_editions_by_work", __name__ + ".count_editions_by_work"
+        r"/([^/]*)/count_editions_by_work",
+        f"{__name__}.count_editions_by_work",
     )
     server.app.add_mapping(
-        r"/([^/]*)/count_edits_by_user", __name__ + ".count_edits_by_user"
+        r"/([^/]*)/count_edits_by_user", f"{__name__}.count_edits_by_user"
     )
-    server.app.add_mapping(r"/([^/]*)/most_recent", __name__ + ".most_recent")
-    server.app.add_mapping(r"/([^/]*)/clear_cache", __name__ + ".clear_cache")
-    server.app.add_mapping(r"/([^/]*)/stats/(\d\d\d\d-\d\d-\d\d)", __name__ + ".stats")
-    server.app.add_mapping(r"/([^/]*)/has_user", __name__ + ".has_user")
-    server.app.add_mapping(r"/([^/]*)/olid_to_key", __name__ + ".olid_to_key")
-    server.app.add_mapping(r"/_reload_config", __name__ + ".reload_config")
-    server.app.add_mapping(r"/_inspect", __name__ + "._inspect")
+    server.app.add_mapping(r"/([^/]*)/most_recent", f"{__name__}.most_recent")
+    server.app.add_mapping(r"/([^/]*)/clear_cache", f"{__name__}.clear_cache")
+    server.app.add_mapping(
+        r"/([^/]*)/stats/(\d\d\d\d-\d\d-\d\d)", f"{__name__}.stats"
+    )
+    server.app.add_mapping(r"/([^/]*)/has_user", f"{__name__}.has_user")
+    server.app.add_mapping(r"/([^/]*)/olid_to_key", f"{__name__}.olid_to_key")
+    server.app.add_mapping(r"/_reload_config", f"{__name__}.reload_config")
+    server.app.add_mapping(r"/_inspect", f"{__name__}._inspect")
 
 
 def setup_logging():
@@ -90,7 +94,7 @@ def setup_logging():
         logger.info("logging initialized")
         logger.debug("debug")
     except Exception as e:
-        print("Unable to set logging configuration:", str(e), file=sys.stderr)
+        print("Unable to set logging configuration:", e, file=sys.stderr)
         raise
 
 
@@ -194,7 +198,7 @@ class has_user:
         if web.re_compile(r"OL\d+[A-Z]").match(i.username.upper()):
             return True
 
-        key = "/user/" + i.username.lower()
+        key = f"/user/{i.username.lower()}"
         type_user = get_thing_id("/type/user")
         d = get_db().query(
             "SELECT * from thing WHERE lower(key) = $key AND type=$type_user",
@@ -292,9 +296,8 @@ def write(path, data):
     dir = os.path.dirname(path)
     if not os.path.exists(dir):
         os.makedirs(dir)
-    f = open(path, 'w')
-    f.write(data)
-    f.close()
+    with open(path, 'w') as f:
+        f.write(data)
 
 
 def save_error(dir, prefix):
@@ -341,12 +344,7 @@ def get_object_data(site, thing):
 
 def http_notify(site, old, new):
     """Notify listeners over http."""
-    if isinstance(new, dict):
-        data = new
-    else:
-        # new is a thing. call format_data to get the actual data.
-        data = new.format_data()
-
+    data = new if isinstance(new, dict) else new.format_data()
     json_data = json.dumps(data)
     key = data['key']
 
@@ -392,11 +390,7 @@ class MemcacheInvalidater:
             return olmemcache.Client(_cache['servers'])
 
     def to_dict(self, d):
-        if isinstance(d, dict):
-            return d
-        else:
-            # new is a thing. call format_data to get the actual data.
-            return d.format_data()
+        return d if isinstance(d, dict) else d.format_data()
 
     def __call__(self, site, old, new):
         if not old:
@@ -416,7 +410,7 @@ class MemcacheInvalidater:
         else:
             keys = self.invalidate_default(site, old)
 
-        self.memcache.delete_multi(['details/' + k for k in keys])
+        self.memcache.delete_multi([f'details/{k}' for k in keys])
 
     def invalidate_author(self, site, old):
         yield old.key
@@ -472,10 +466,14 @@ def _process_key(key):
         '/user/',
         '/people/',
     )
-    for old, new in web.group(mapping, 2):
-        if key.startswith(old):
-            return new + key[len(old) :]
-    return key
+    return next(
+        (
+            new + key[len(old) :]
+            for old, new in web.group(mapping, 2)
+            if key.startswith(old)
+        ),
+        key,
+    )
 
 
 def _process_data(data):

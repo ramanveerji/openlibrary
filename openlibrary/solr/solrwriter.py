@@ -15,11 +15,7 @@ class SolrWriter:
 
     def __init__(self, host, core=None):
         self.host = host
-        if core:
-            self.update_url = "/solr/%s/update" % core
-        else:
-            self.update_url = "/solr/update"
-
+        self.update_url = f"/solr/{core}/update" if core else "/solr/update"
         self.conn = None
         self.identifier_field = "key"
         self.pending_updates = []
@@ -33,7 +29,7 @@ class SolrWriter:
         """Sends an update request to solr with given XML."""
         conn = self.get_conn()
 
-        logger.info('request: %r', xml[:65] + '...' if len(xml) > 65 else xml)
+        logger.info('request: %r', f'{xml[:65]}...' if len(xml) > 65 else xml)
         conn.request(
             'POST', self.update_url, xml, {'Content-type': 'text/xml;charset=utf-8'}
         )
@@ -47,7 +43,7 @@ class SolrWriter:
 
     def delete(self, key):
         logger.info("deleting %s", key)
-        q = '<delete><id>%s</id></delete>' % key
+        q = f'<delete><id>{key}</id></delete>'
         self.request(q)
 
     def update(self, document):
@@ -81,9 +77,7 @@ re_bad_char = re.compile('[\x01\x0b\x1a-\x1e]')
 
 
 def strip_bad_char(s):
-    if not isinstance(s, str):
-        return s
-    return re_bad_char.sub('', s)
+    return s if not isinstance(s, str) else re_bad_char.sub('', s)
 
 
 def add_field(doc, name, value):

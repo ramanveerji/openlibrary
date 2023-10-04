@@ -70,7 +70,7 @@ def get_modified_works(frm, to):
     ret = []
     logging.debug("Querying between %s and %s", frm, to)
     while frm < to:
-        url = frm.strftime(BASE_URL + "%Y/%m/%d.json")
+        url = frm.strftime(f"{BASE_URL}%Y/%m/%d.json")
         logging.debug("Fetching changes from %s", url)
         ret.append(extract_works(requests.get(url).json()))
         frm += one_day
@@ -81,7 +81,7 @@ def poll_for_changes(start_time_file, max_chunk_size, delay):
     try:
         with open(start_time_file) as f:
             date = datetime.datetime.strptime(f.read(), "%Y/%m/%d")
-            logging.debug("Obtained last end time from file '%s'" % start_time_file)
+            logging.debug(f"Obtained last end time from file '{start_time_file}'")
     except OSError:
         date = datetime.datetime.now()
         logging.info("No state file. Starting from now.")
@@ -91,7 +91,7 @@ def poll_for_changes(start_time_file, max_chunk_size, delay):
     seen = set()
     rest = []
     while True:
-        url = date.strftime(BASE_URL + "%Y/%m/%d.json")
+        url = date.strftime(f"{BASE_URL}%Y/%m/%d.json")
         logging.debug("-- Fetching changes from %s", url)
         changes = list(requests.get(url).json())
         unseen_changes = [x for x in changes if x['id'] not in seen]

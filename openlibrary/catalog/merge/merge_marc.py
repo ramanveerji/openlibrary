@@ -39,10 +39,8 @@ def build_titles(title):
     if re_amazon_title_paren.match(title):
         t2 = []
         for t in titles:
-            m = re_amazon_title_paren.match(t)
-            if m:
-                t2.append(m.group(1))
-                t2.append(normalize(m.group(1)))
+            if m := re_amazon_title_paren.match(t):
+                t2.extend((m.group(1), normalize(m.group(1))))
         titles += t2
 
     return {
@@ -119,9 +117,9 @@ def level1_merge(e1, e2):
     else:
         score.append(('short-title', 'mismatch', 0))
 
-    score.append(compare_lccn(e1, e2))
-    score.append(compare_date(e1, e2))
-    score.append(compare_isbn10(e1, e2))
+    score.extend(
+        (compare_lccn(e1, e2), compare_date(e1, e2), compare_isbn10(e1, e2))
+    )
     return score
 
 
@@ -130,8 +128,7 @@ def level2_merge(e1, e2):
     :rtype: list
     :return: a list of tuples (field/category, result str, score int)
     """
-    score = []
-    score.append(compare_date(e1, e2))
+    score = [compare_date(e1, e2)]
     score.append(compare_country(e1, e2))
     score.append(compare_isbn10(e1, e2))
     score.append(compare_title(e1, e2))
@@ -229,10 +226,7 @@ def keyword_match(in1, in2):
 def compare_title(amazon, marc):
     amazon_title = amazon['normalized_title'].lower()
     marc_title = normalize(marc['full_title']).lower()
-    short = False
-    if len(amazon_title) < 9 or len(marc_title) < 9:
-        short = True
-
+    short = len(amazon_title) < 9 or len(marc_title) < 9
     if not short:
         for a in amazon['titles']:
             for m in marc['titles']:
@@ -289,23 +283,21 @@ def short_part_publisher_match(p1, p2):
 
 
 def compare_publisher(e1, e2):
-    if 'publishers' in e1 and 'publishers' in e2:
-        for e1_pub in e1['publishers']:
-            e1_norm = normalize(e1_pub)
-            for e2_pub in e2['publishers']:
-                e2_norm = normalize(e2_pub)
-                if e1_norm == e2_norm:
-                    return ('publisher', 'match', 100)
-                elif substr_match(e1_norm, e2_norm) or substr_match(
-                    e1_norm.replace(' ', ''), e2_norm.replace(' ', '')
-                ):
-                    return ('publisher', 'occur within the other', 100)
-                elif short_part_publisher_match(e1_norm, e2_norm):
-                    return ('publisher', 'match', 100)
-        return ('publisher', 'mismatch', -25)
-
     if 'publishers' not in e1 or 'publishers' not in e2:
         return ('publisher', 'either missing', 0)
+    for e1_pub in e1['publishers']:
+        e1_norm = normalize(e1_pub)
+        for e2_pub in e2['publishers']:
+            e2_norm = normalize(e2_pub)
+            if e1_norm == e2_norm:
+                return ('publisher', 'match', 100)
+            elif substr_match(e1_norm, e2_norm) or substr_match(
+                e1_norm.replace(' ', ''), e2_norm.replace(' ', '')
+            ):
+                return ('publisher', 'occur within the other', 100)
+            elif short_part_publisher_match(e1_norm, e2_norm):
+                return ('publisher', 'match', 100)
+    return ('publisher', 'mismatch', -25)
 
 
 def attempt_merge(e1, e2, threshold, debug=False):

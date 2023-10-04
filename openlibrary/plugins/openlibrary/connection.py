@@ -121,39 +121,39 @@ class IAMiddleware(ConnectionMiddleware):
     def get(self, sitename, data):
         key = data.get('key')
 
-        if itemid := self._get_itemid(key):
-            edition_key = self._find_edition(sitename, itemid)
-            if edition_key:
-                # Delete the store entry, indicating that this is no more is an item to be imported.
-                self._ensure_no_store_entry(sitename, itemid)
-                return self._make_redirect(itemid, edition_key)
-            else:
-                metadata = ia.get_metadata(itemid)
-                doc = ia.edition_from_item_metadata(itemid, metadata)
-
-                if doc is None:
-                    # Delete store entry, if it exists.
-                    # When an item is darked on archive.org, it should be
-                    # automatically removed from OL. Removing entry from store
-                    # will trigger the solr-updater to delete it from solr as well.
-                    self._ensure_no_store_entry(sitename, itemid)
-
-                    raise client.ClientException(
-                        "404 Not Found",
-                        "notfound",
-                        json.dumps({"key": "/books/ia:" + itemid, "error": "notfound"}),
-                    )
-
-                storedoc = self._ensure_store_entry(sitename, itemid)
-
-                # Hack to add additional subjects /books/ia: pages
-                # Adding subjects to store docs, will add these subjects to the books.
-                # These subjects are used when indexing the books in solr.
-                if storedoc.get("subjects"):
-                    doc.setdefault("subjects", []).extend(storedoc['subjects'])
-                return json.dumps(doc)
-        else:
+        if not (itemid := self._get_itemid(key)):
             return ConnectionMiddleware.get(self, sitename, data)
+        if edition_key := self._find_edition(sitename, itemid):
+            # Delete the store entry, indicating that this is no more is an item to be imported.
+            self._ensure_no_store_entry(sitename, itemid)
+            return self._make_redirect(itemid, edition_key)
+        else:
+            metadata = ia.get_metadata(itemid)
+            doc = ia.edition_from_item_metadata(itemid, metadata)
+
+            if doc is None:
+                # Delete store entry, if it exists.
+                # When an item is darked on archive.org, it should be
+                # automatically removed from OL. Removing entry from store
+                # will trigger the solr-updater to delete it from solr as well.
+                self._ensure_no_store_entry(sitename, itemid)
+
+                raise client.ClientException(
+                    "404 Not Found",
+                    "notfound",
+                    json.dumps(
+                        {"key": f"/books/ia:{itemid}", "error": "notfound"}
+                    ),
+                )
+
+            storedoc = self._ensure_store_entry(sitename, itemid)
+
+            # Hack to add additional subjects /books/ia: pages
+            # Adding subjects to store docs, will add these subjects to the books.
+            # These subjects are used when indexing the books in solr.
+            if storedoc.get("subjects"):
+                doc.setdefault("subjects", []).extend(storedoc['subjects'])
+            return json.dumps(doc)
 
     def _find_edition(self, sitename, itemid):
         # match ocaid
@@ -161,24 +161,22 @@ class IAMiddleware(ConnectionMiddleware):
         keys_json = ConnectionMiddleware.things(
             self, sitename, {"query": json.dumps(q)}
         )
-        keys = json.loads(keys_json)
-        if keys:
+        if keys := json.loads(keys_json):
             return keys[0]
 
         # Match source_records
         # When there are multiple scan for the same edition, only scan_records is updated.
-        q = {"type": "/type/edition", "source_records": "ia:" + itemid}
+        q = {"type": "/type/edition", "source_records": f"ia:{itemid}"}
         keys_json = ConnectionMiddleware.things(
             self, sitename, {"query": json.dumps(q)}
         )
-        keys = json.loads(keys_json)
-        if keys:
+        if keys := json.loads(keys_json):
             return keys[0]
 
     def _make_redirect(self, itemid, location):
         timestamp = {"type": "/type/datetime", "value": "2010-01-01T00:00:00"}
         d = {
-            "key": "/books/ia:" + itemid,
+            "key": f"/books/ia:{itemid}",
             "type": {"key": "/type/redirect"},
             "location": location,
             "revision": 1,
@@ -188,8 +186,8 @@ class IAMiddleware(ConnectionMiddleware):
         return json.dumps(d)
 
     def _ensure_no_store_entry(self, sitename, identifier):
-        key = "ia-scan/" + identifier
-        store_key = "/_store/" + key
+        key = f"ia-scan/{identifier}"
+        store_key = f"/_store/{key}"
         # If the entry is not found, create an entry
         try:
             jsontext = self.store_get(sitename, store_key)
@@ -199,8 +197,8 @@ class IAMiddleware(ConnectionMiddleware):
             pass
 
     def _ensure_store_entry(self, sitename, identifier):
-        key = "ia-scan/" + identifier
-        store_key = "/_store/" + key
+        key = f"ia-scan/{identifier}"
+        store_key = f"/_store/{key}"
         # If the entry is not found, create an entry
         try:
             jsontext = self.store_get(sitename, store_key)
@@ -223,8 +221,7 @@ class IAMiddleware(ConnectionMiddleware):
         # handle the query of type {"query": '{"key": "/books/ia:foo00bar", ...}}
         if 'query' in data:
             q = json.loads(data['query'])
-            itemid = self._get_itemid(q.get('key'))
-            if itemid:
+            if itemid := self._get_itemid(q.get('key')):
                 key = q['key']
                 return json.dumps([self.dummy_edit(key)])
 
@@ -235,8 +232,7 @@ class IAMiddleware(ConnectionMiddleware):
         # handle the query of type {"query": '{"key": "/books/ia:foo00bar", ...}}
         if 'query' in data:
             q = json.loads(data['query'])
-            itemid = self._get_itemid(q.get('key'))
-            if itemid:
+            if itemid := self._get_itemid(q.get('key')):
                 key = q['key']
                 return json.dumps([self.dummy_recentchange(key)])
 
@@ -318,8 +314,7 @@ class MemcacheMiddleware(ConnectionMiddleware):
         result = self.memcache.get_multi(keys)
         stats.end(found=len(result))
 
-        keys2 = [k for k in keys if k not in result]
-        if keys2:
+        if keys2 := [k for k in keys if k not in result]:
             data['keys'] = json.dumps(keys2)
             result2 = ConnectionMiddleware.get_many(self, sitename, data)
             result2 = json.loads(result2)
@@ -419,17 +414,22 @@ class MemcacheMiddleware(ConnectionMiddleware):
                         sitename, "/_store/account/" + data['username']
                     )
                     doc = json.loads(docjson)
-                    deletes.append("/_store/account-email/" + doc["email"])
-                    deletes.append("/_store/account-email/" + doc["email"].lower())
+                    deletes.extend(
+                        (
+                            "/_store/account-email/" + doc["email"],
+                            "/_store/account-email/" + doc["email"].lower(),
+                        )
+                    )
                 except client.ClientException:
                     # ignore
                     pass
             if 'email' in data:
-                # if email is being passed, that that email doc is likely to be changed.
-                # remove that also from cache.
-                deletes.append("/_store/account-email/" + data["email"])
-                deletes.append("/_store/account-email/" + data["email"].lower())
-
+                deletes.extend(
+                    (
+                        "/_store/account-email/" + data["email"],
+                        "/_store/account-email/" + data["email"].lower(),
+                    )
+                )
             self.mc_delete_multi(deletes)
             result = ConnectionMiddleware.account_request(
                 self, sitename, path, method, data
@@ -446,18 +446,18 @@ class MigrationMiddleware(ConnectionMiddleware):
     """Temporary middleware to handle upstream to www migration."""
 
     def _process_key(self, key):
-        mapping = (
-            "/l/",
-            "/languages/",
-            "/a/",
-            "/authors/",
-            "/b/",
-            "/books/",
-            "/user/",
-            "/people/",
-        )
-
         if "/" in key and key.split("/")[1] in ['a', 'b', 'l', 'user']:
+            mapping = (
+                "/l/",
+                "/languages/",
+                "/a/",
+                "/authors/",
+                "/b/",
+                "/books/",
+                "/user/",
+                "/people/",
+            )
+
             for old, new in web.group(mapping, 2):
                 if key.startswith(old):
                     return new + key[len(old) :]

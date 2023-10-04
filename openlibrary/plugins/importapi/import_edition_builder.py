@@ -106,7 +106,7 @@ class import_edition_builder:
         self.add_list('authors', author_dict)
 
     def add_illustrator(self, key, val):
-        self.add_list('contributions', val + ' (Illustrator)')
+        self.add_list('contributions', f'{val} (Illustrator)')
 
     def __init__(self, init_dict=None):
         init_dict = init_dict or {}
@@ -142,7 +142,7 @@ class import_edition_builder:
 
     def add(self, key, val, restrict_keys=True):
         if restrict_keys and key not in self.type_dict:
-            print('import_edition_builder invalid key: ' + key)
+            print(f'import_edition_builder invalid key: {key}')
             return
 
         if key in self.type_dict:

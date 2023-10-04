@@ -18,9 +18,7 @@ def getdb():
 def get_category_id(category):
     global _categories
     if _categories is None:
-        _categories = {}
-        for c in getdb().select('category'):
-            _categories[c.name] = c.id
+        _categories = {c.name: c.id for c in getdb().select('category')}
     return _categories.get(category)
 
 

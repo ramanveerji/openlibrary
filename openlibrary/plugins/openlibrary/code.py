@@ -201,11 +201,15 @@ class routes(delegate.page):
     path = '/developers/routes'
 
     def GET(self):
+
+
+
         class ModulesToStr(json.JSONEncoder):
             def default(self, obj):
                 if isinstance(obj, metapage):
-                    return obj.__module__ + '.' + obj.__name__
+                    return f'{obj.__module__}.{obj.__name__}'
                 return super().default(obj)
+
 
         from openlibrary import code
 
@@ -238,8 +242,7 @@ class addbook(delegate.page):
         d = {'type': web.ctx.site.get('/type/edition')}
 
         i = web.input()
-        author = i.get('author') and web.ctx.site.get(i.author)
-        if author:
+        if author := i.get('author') and web.ctx.site.get(i.author):
             d['authors'] = [author]
 
         page = web.ctx.site.new("", d)
@@ -300,11 +303,10 @@ class clonebook(delegate.page):
         page = web.ctx.site.get(i.key)
         if page is None:
             raise web.seeother(i.key)
-        else:
-            d = page._getdata()
-            for k in ['isbn_10', 'isbn_13', 'lccn', 'oclc']:
-                d.pop(k, None)
-            return render.edit(page, '/addbook', 'Clone Book')
+        d = page._getdata()
+        for k in ['isbn_10', 'isbn_13', 'lccn', 'oclc']:
+            d.pop(k, None)
+        return render.edit(page, '/addbook', 'Clone Book')
 
 
 class search(delegate.page):
@@ -315,7 +317,7 @@ class search(delegate.page):
         if len(i.prefix) > 2:
             q = {
                 'type': '/type/author',
-                'name~': i.prefix + '*',
+                'name~': f'{i.prefix}*',
                 'sort': 'name',
                 'limit': 5,
             }
@@ -341,10 +343,7 @@ class search(delegate.page):
             'result': result,
         }
 
-        if callback:
-            data = f'{callback}({json.dumps(d)})'
-        else:
-            data = json.dumps(d)
+        data = f'{callback}({json.dumps(d)})' if callback else json.dumps(d)
         raise web.HTTPError('200 OK', {}, data)
 
 
@@ -353,12 +352,12 @@ class blurb(delegate.page):
 
     def GET(self, path):
         i = web.input()
-        author = web.ctx.site.get('/' + path)
+        author = web.ctx.site.get(f'/{path}')
         body = ''
         if author.birth_date or author.death_date:
             body = f'{author.birth_date} - {author.death_date}'
         else:
-            body = '%s' % author.date
+            body = f'{author.date}'
 
         body += '<br/>'
         if author.bio:
@@ -392,9 +391,8 @@ def save(filename, text):
     dir = os.path.dirname(path)
     if not os.path.exists(dir):
         os.makedirs(dir)
-    f = open(path, 'w')
-    f.write(text)
-    f.close()
+    with open(path, 'w') as f:
+        f.write(text)
 
 
 def change_ext(filename, ext):
@@ -471,8 +469,8 @@ class isbn_lookup(delegate.page):
     def GET(self, isbn):
         # Preserve the url type (e.g. `.json`) and query params
         ext = ''
-        if web.ctx.encoding and web.ctx.path.endswith('.' + web.ctx.encoding):
-            ext = '.' + web.ctx.encoding
+        if web.ctx.encoding and web.ctx.path.endswith(f'.{web.ctx.encoding}'):
+            ext = f'.{web.ctx.encoding}'
         if web.ctx.env.get('QUERY_STRING'):
             ext += '?' + web.ctx.env['QUERY_STRING']
 
@@ -506,8 +504,8 @@ class bookpage(delegate.page):
         if key != 'ocaid':  # example: MN41558ucmf_6
             value = value.replace('_', ' ')
 
-        if web.ctx.encoding and web.ctx.path.endswith('.' + web.ctx.encoding):
-            ext = '.' + web.ctx.encoding
+        if web.ctx.encoding and web.ctx.path.endswith(f'.{web.ctx.encoding}'):
+            ext = f'.{web.ctx.encoding}'
         else:
             ext = ''
 
@@ -516,19 +514,16 @@ class bookpage(delegate.page):
 
         q = {'type': '/type/edition', key: value}
 
-        result = web.ctx.site.things(q)
-
-        if result:
+        if result := web.ctx.site.things(q):
             return web.found(result[0] + ext)
         elif key == 'ocaid':
             # Try a range of ocaid alternatives:
             ocaid_alternatives = [
-                {'type': '/type/edition', 'source_records': 'ia:' + value},
+                {'type': '/type/edition', 'source_records': f'ia:{value}'},
                 {'type': '/type/volume', 'ia_id': value},
             ]
             for q in ocaid_alternatives:
-                result = web.ctx.site.things(q)
-                if result:
+                if result := web.ctx.site.things(q):
                     return web.found(result[0] + ext)
 
             # Perform import, if possible
@@ -542,7 +537,7 @@ class bookpage(delegate.page):
                     logger.exception('Unable to import ia record')
 
             # Go the the record created, or to the dummy ia-wrapper record
-            return web.found('/books/ia:' + value + ext)
+            return web.found(f'/books/ia:{value}{ext}')
 
         web.ctx.status = '404 Not Found'
         return render.notfound(web.ctx.path, create=False)
@@ -556,20 +551,18 @@ class rdf(delegate.mode):
     encoding = 'rdf'
 
     def GET(self, key):
-        page = web.ctx.site.get(key)
-        if not page:
+        if not (page := web.ctx.site.get(key)):
+            raise web.notfound('')
+        from infogami.utils import template
+
+        try:
+            result = template.typetemplate('rdf')(page)
+        except:
             raise web.notfound('')
         else:
-            from infogami.utils import template
-
-            try:
-                result = template.typetemplate('rdf')(page)
-            except:
-                raise web.notfound('')
-            else:
-                return delegate.RawText(
-                    result, content_type='application/rdf+xml; charset=utf-8'
-                )
+            return delegate.RawText(
+                result, content_type='application/rdf+xml; charset=utf-8'
+            )
 
 
 delegate.media_types[' application/atom+xml;profile=opds'] = 'opds'
@@ -580,20 +573,18 @@ class opds(delegate.mode):
     encoding = 'opds'
 
     def GET(self, key):
-        page = web.ctx.site.get(key)
-        if not page:
+        if not (page := web.ctx.site.get(key)):
+            raise web.notfound('')
+        from openlibrary.plugins.openlibrary import opds
+
+        try:
+            result = opds.OPDSEntry(page).to_string()
+        except:
             raise web.notfound('')
         else:
-            from openlibrary.plugins.openlibrary import opds
-
-            try:
-                result = opds.OPDSEntry(page).to_string()
-            except:
-                raise web.notfound('')
-            else:
-                return delegate.RawText(
-                    result, content_type=' application/atom+xml;profile=opds'
-                )
+            return delegate.RawText(
+                result, content_type=' application/atom+xml;profile=opds'
+            )
 
 
 delegate.media_types['application/marcxml+xml'] = 'marcxml'
@@ -607,17 +598,16 @@ class marcxml(delegate.mode):
         page = web.ctx.site.get(key)
         if page is None or page.type.key != '/type/edition':
             raise web.notfound('')
-        else:
-            from infogami.utils import template
+        from infogami.utils import template
 
-            try:
-                result = template.typetemplate('marcxml')(page)
-            except:
-                raise web.notfound('')
-            else:
-                return delegate.RawText(
-                    result, content_type='application/marcxml+xml; charset=utf-8'
-                )
+        try:
+            result = template.typetemplate('marcxml')(page)
+        except:
+            raise web.notfound('')
+        else:
+            return delegate.RawText(
+                result, content_type='application/marcxml+xml; charset=utf-8'
+            )
 
 
 delegate.media_types['text/x-yaml'] = 'yml'
@@ -644,10 +634,7 @@ class _yaml(delegate.mode):
         try:
             d = api.request('/get', data=data)
         except client.ClientException as e:
-            if e.json:
-                msg = self.dump(json.loads(e.json))
-            else:
-                msg = str(e)
+            msg = self.dump(json.loads(e.json)) if e.json else str(e)
             raise web.HTTPError(e.status, data=msg)
 
         return json.loads(d)
@@ -700,7 +687,7 @@ class _yaml_edit(_yaml):
             except (client.ClientException, ValidationException) as e:
                 add_flash_message('error', str(e))
                 return render.edit_yaml(key, i.body)
-            raise web.seeother(key + '.yml')
+            raise web.seeother(f'{key}.yml')
         elif '_preview' in i:
             add_flash_message('Preview not supported')
             return render.edit_yaml(key, i.body)
@@ -717,7 +704,7 @@ def _get_user_root():
 def _get_bots():
     bots = web.ctx.site.store.values(type='account', name='bot', value='true')
     user_root = _get_user_root()
-    return [user_root + '/' + account['username'] for account in bots]
+    return [f'{user_root}/' + account['username'] for account in bots]
 
 
 def _get_members_of_group(group_key):
@@ -764,12 +751,11 @@ class new:
         """
         if isinstance(query, list):
             return [self.prepare_query(q) for q in query]
-        else:
-            type = query['type']
-            if isinstance(type, dict):
-                type = type['key']
-            query['key'] = web.ctx.site.new_key(type)
-            return query['key']
+        type = query['type']
+        if isinstance(type, dict):
+            type = type['key']
+        query['key'] = web.ctx.site.new_key(type)
+        return query['key']
 
     def verify_types(self, query):
         if isinstance(query, list):
@@ -781,7 +767,7 @@ class new:
             type = query['type']
             if isinstance(type, dict):
                 if 'key' not in type:
-                    raise BadRequest('Bad Type: ' + json.dumps(type))
+                    raise BadRequest(f'Bad Type: {json.dumps(type)}')
                 type = type['key']
 
             if type not in [
@@ -791,7 +777,7 @@ class new:
                 '/type/series',
                 '/type/publisher',
             ]:
-                raise BadRequest('Bad Type: ' + json.dumps(type))
+                raise BadRequest(f'Bad Type: {json.dumps(type)}')
 
     def POST(self):
         if not can_write():
@@ -820,7 +806,7 @@ class new:
         if user.lower().endswith('bot'):
             botname = user.replace('/people/', '', 1)
             botname = botname.replace('.', '-')
-            key = 'ol.edits.bots.' + botname
+            key = f'ol.edits.bots.{botname}'
             openlibrary.core.stats.increment(key)
         return json.dumps(keys)
 
@@ -844,7 +830,7 @@ def changequery(query=None, **kw):
     }
     out = web.ctx.get('readable_path', web.ctx.path)
     if query:
-        out += '?' + urllib.parse.urlencode(query, doseq=True)
+        out += f'?{urllib.parse.urlencode(query, doseq=True)}'
     return out
 
 
@@ -866,14 +852,13 @@ def get_recent_changes(*a, **kw):
 
 @public
 def most_recent_change():
-    if 'cache_most_recent' in infogami.config.features:
-        v = web.ctx.site._request('/most_recent')
-        v.thing = web.ctx.site.get(v.key)
-        v.author = v.author and web.ctx.site.get(v.author)
-        v.created = client.parse_datetime(v.created)
-        return v
-    else:
+    if 'cache_most_recent' not in infogami.config.features:
         return get_recent_changes(limit=1)[0]
+    v = web.ctx.site._request('/most_recent')
+    v.thing = web.ctx.site.get(v.key)
+    v.author = v.author and web.ctx.site.get(v.author)
+    v.created = client.parse_datetime(v.created)
+    return v
 
 
 @public
@@ -931,10 +916,8 @@ def save_error():
         os.makedirs(dir)
 
     error = web.safestr(web.djangoerror())
-    f = open(path, 'w')
-    f.write(error)
-    f.close()
-
+    with open(path, 'w') as f:
+        f.write(error)
     print('error saved to', path, file=web.debug)
     return name
 
@@ -956,9 +939,8 @@ def internalerror():
 
     if i.debug.lower() == 'true':
         raise web.debugerror()
-    else:
-        msg = render.site(render.internalerror(name))
-        raise web.internalerror(web.safestr(msg))
+    msg = render.site(render.internalerror(name))
+    raise web.internalerror(web.safestr(msg))
 
 
 delegate.app.internalerror = internalerror
@@ -978,7 +960,7 @@ class memory(delegate.page):
 def _get_relatedcarousels_component(workid):
     if 'env' not in web.ctx:
         delegate.fakeload()
-    work = web.ctx.site.get('/works/%s' % workid) or {}
+    work = web.ctx.site.get(f'/works/{workid}') or {}
     component = render_template('books/RelatedWorksCarousel', work)
     return {0: str(component)}
 

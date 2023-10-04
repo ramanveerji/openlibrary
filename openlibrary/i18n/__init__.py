@@ -37,9 +37,8 @@ def _compile_translation(po, mo):
     try:
         catalog = read_po(open(po, 'rb'))
 
-        f = open(mo, 'wb')
-        write_mo(f, catalog)
-        f.close()
+        with open(mo, 'wb') as f:
+            write_mo(f, catalog)
         print('compiled', po, file=web.debug)
     except Exception as e:
         print('failed to compile', po, file=web.debug)
@@ -134,7 +133,7 @@ def extract_templetor(fileobj, keywords, comment_tags, options):
         code = web.template.Template.generate_code(cleaned_string, fileobj.name)
         f = BytesIO(code.encode('utf-8'))  # Babel wants bytes, not strings
     except Exception as e:
-        print('Failed to extract ' + fileobj.name + ':', repr(e), file=web.debug)
+        print(f'Failed to extract {fileobj.name}:', repr(e), file=web.debug)
         return []
     return extract_python(f, keywords, comment_tags, options)
 
@@ -159,10 +158,8 @@ def extract_messages(dirs: list[str]):
             print(f"{count}\t{path}", file=sys.stderr)
 
     path = os.path.join(root, 'messages.pot')
-    f = open(path, 'wb')
-    write_po(f, catalog)
-    f.close()
-
+    with open(path, 'wb') as f:
+        write_po(f, catalog)
     print('wrote template to', path)
 
 
@@ -192,9 +189,8 @@ def update_translations(locales: list[str]):
             catalog = read_po(open(po_path, 'rb'))
             catalog.update(template)
 
-            f = open(po_path, 'wb')
-            write_po(f, catalog)
-            f.close()
+            with open(po_path, 'wb') as f:
+                write_po(f, catalog)
             print('updated', po_path)
         else:
             print(f"ERROR: {po_path} does not exist...")
@@ -356,11 +352,7 @@ def ungettext(s1, s2, _n, *a, **kw):
     value = translations and translations.ungettext(s1, s2, _n)
     if not value:
         # fallback when translation is not provided
-        if _n == 1:
-            value = s1
-        else:
-            value = s2
-
+        value = s1 if _n == 1 else s2
     if a:
         return value % a
     elif kw:

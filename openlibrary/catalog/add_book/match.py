@@ -38,10 +38,9 @@ def editions_match(candidate, existing):
         return False
     # FIXME: will fail if existing is a redirect.
     assert thing_type == '/type/edition'
-    rec2 = {}
-    rec2['full_title'] = existing.title
+    rec2 = {'full_title': existing.title}
     if existing.subtitle:
-        rec2['full_title'] += ' ' + existing.subtitle
+        rec2['full_title'] += f' {existing.subtitle}'
     for f in (
         'isbn',
         'isbn_10',

@@ -18,4 +18,4 @@ def get_new_keys(site, type, n):
         # >>> get_new_keys(site, "/type/edition", 2)
         # ["/books/OL12M", "/books/OL13M"]
     """
-    return [get_new_key(site, type) for i in range(n)]
+    return [get_new_key(site, type) for _ in range(n)]

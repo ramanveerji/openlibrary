@@ -37,12 +37,12 @@ def save_image(data, category, olid, author=None, ip=None, source_url=None):
     )
     d['width'], d['height'] = img.size
 
-    filename = prefix + '.jpg'
+    filename = f'{prefix}.jpg'
     d['ip'] = ip
     d['filename'] = filename
-    d['filename_s'] = prefix + '-S.jpg'
-    d['filename_m'] = prefix + '-M.jpg'
-    d['filename_l'] = prefix + '-L.jpg'
+    d['filename_s'] = f'{prefix}-S.jpg'
+    d['filename_m'] = f'{prefix}-M.jpg'
+    d['filename_l'] = f'{prefix}-L.jpg'
     d.id = db.new(**d)
     return d
 
@@ -66,7 +66,7 @@ def write_image(data: bytes, prefix: str) -> Image.Image | None:
         os.makedirs(dirname)
     try:
         # save original image
-        with open(path_prefix + '.jpg', 'wb') as f:
+        with open(f'{path_prefix}.jpg', 'wb') as f:
             f.write(data)
 
         img = Image.open(BytesIO(data))
@@ -81,10 +81,10 @@ def write_image(data: bytes, prefix: str) -> Image.Image | None:
         logger.exception("write_image() failed")
 
         # cleanup
-        rm_f(prefix + '.jpg')
-        rm_f(prefix + '-S.jpg')
-        rm_f(prefix + '-M.jpg')
-        rm_f(prefix + '-L.jpg')
+        rm_f(f'{prefix}.jpg')
+        rm_f(f'{prefix}-S.jpg')
+        rm_f(f'{prefix}-M.jpg')
+        rm_f(f'{prefix}-L.jpg')
 
         return None
 
@@ -125,9 +125,7 @@ def read_file(path):
 
 def read_image(d, size):
     if size:
-        filename = (
-            d['filename_' + size.lower()] or d.filename + "-%s.jpg" % size.upper()
-        )
+        filename = d[f'filename_{size.lower()}'] or f"{d.filename}-{size.upper()}.jpg"
     else:
         filename = d.filename
     path = find_image_path(filename)

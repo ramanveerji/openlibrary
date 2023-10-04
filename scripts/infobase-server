@@ -12,6 +12,7 @@ USAGE:
     $ python ./scripts/infobase-server infobase.yml fastcgi 7070
 """
 
+
 import logging
 import os
 import sys
@@ -21,7 +22,7 @@ import web
 
 from openlibrary.utils.sentry import Sentry
 
-logger = logging.getLogger("openlibrary." + __file__)
+logger = logging.getLogger(f"openlibrary.{__file__}")
 
 
 def setup_env():
@@ -34,7 +35,7 @@ def setup_env():
 
 def main(args):
     if len(args) < 1 or args[0] in ['-h', '--help']:
-        print("USAGE: %s configfile [port]" % (sys.argv[0]), file=sys.stderr)
+        print(f"USAGE: {sys.argv[0]} configfile [port]", file=sys.stderr)
         sys.exit(1)
 
     start(*args)

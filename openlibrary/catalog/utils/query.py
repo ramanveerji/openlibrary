@@ -31,12 +31,12 @@ def set_query_host(host):
 
 
 def has_cover(key):
-    url = 'https://covers.openlibrary.org/' + key[1] + '/query?olid=' + key[3:]
+    url = f'https://covers.openlibrary.org/{key[1]}/query?olid={key[3:]}'
     return urlread(url).strip() != '[]'
 
 
 def has_cover_retry(key):
-    for attempt in range(5):
+    for _ in range(5):
         try:
             return has_cover(key)
         except KeyboardInterrupt:
@@ -47,22 +47,24 @@ def has_cover_retry(key):
 
 
 def base_url():
-    return "http://" + query_host
+    return f"http://{query_host}"
 
 
 def query_url():
-    return base_url() + "/query.json?query="
+    return f"{base_url()}/query.json?query="
 
 
 def get_all_ia():
     print('c')
-    q = {'source_records~': 'ia:*', 'type': '/type/edition'}
     limit = 10
-    q['limit'] = limit
-    q['offset'] = 0
-
+    q = {
+        'source_records~': 'ia:*',
+        'type': '/type/edition',
+        'limit': limit,
+        'offset': 0,
+    }
     while True:
-        url = base_url() + "/api/things?query=" + web.urlquote(json.dumps(q))
+        url = f"{base_url()}/api/things?query={web.urlquote(json.dumps(q))}"
         ret = jsonload(url)['result']
         yield from ret
         if not ret:
@@ -73,7 +75,7 @@ def get_all_ia():
 def query(q):
     url = query_url() + urllib.parse.quote(json.dumps(q))
     ret = None
-    for i in range(20):
+    for _ in range(20):
         try:
             ret = urlread(url)
             while ret.startswith(b'canceling statement due to statement timeout'):
@@ -133,7 +135,7 @@ def version_iter(q, limit=500, offset=0):
     q['limit'] = limit
     q['offset'] = offset
     while True:
-        url = base_url() + '/version'
+        url = f'{base_url()}/version'
         v = jsonload(url)
         if not v:
             return
@@ -159,7 +161,7 @@ def get_marc_src(e):
     if not e.get('source_records', []):
         return
     for src in e['source_records']:
-        if src.startswith('marc:') and src != 'marc:' + mc:
+        if src.startswith('marc:') and src != f'marc:{mc}':
             yield src[5:]
 
 
@@ -171,12 +173,10 @@ def get_mc(key):  # get machine comment
         for i in v
         if i.get('machine_comment', None) and ':' in i['machine_comment']
     ]
-    if len(comments) == 0:
+    if not comments:
         return None
     if len(set(comments)) != 1:
         print(key)
         print(comments)
     assert len(set(comments)) == 1
-    if comments[0] == 'initial import':
-        return None
-    return comments[0]
+    return None if comments[0] == 'initial import' else comments[0]

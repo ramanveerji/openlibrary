@@ -72,8 +72,7 @@ class memcache_memoize:
 
     def _get_memcache(self):
         if self._memcache is None:
-            servers = config.get("memcache_servers")
-            if servers:
+            if servers := config.get("memcache_servers"):
                 self._memcache = memcache.Client(servers)
             else:
                 web.debug(
@@ -94,7 +93,7 @@ class memcache_memoize:
 
     def _generate_key_prefix(self):
         try:
-            prefix = self.f.__name__ + "_"
+            prefix = f"{self.f.__name__}_"
         except (AttributeError, TypeError):
             prefix = ""
 
@@ -102,7 +101,7 @@ class memcache_memoize:
 
     def _random_string(self, n):
         chars = string.ascii_letters + string.digits
-        return "".join(random.choice(chars) for i in range(n))
+        return "".join(random.choice(chars) for _ in range(n))
 
     def __call__(self, *args, **kw):
         """Memoized function call.
@@ -139,7 +138,7 @@ class memcache_memoize:
         t.start()
 
     def _update_async_worker(self, *args, **kw):
-        key = self.compute_key(args, kw) + "/flag"
+        key = f"{self.compute_key(args, kw)}/flag"
 
         if not self.memcache.add(key, "true"):
             # already somebody else is computing this value.
@@ -182,14 +181,11 @@ class memcache_memoize:
         # strip [ and ] from key
         a = self.json_encode(list(args))[1:-1]
 
-        if kw:
-            return a + "-" + self.json_encode(kw)
-        else:
-            return a
+        return f"{a}-{self.json_encode(kw)}" if kw else a
 
     def compute_key(self, args, kw):
         """Computes memcache key for storing result of function call with given arguments."""
-        key = self.key_prefix + "-" + self.encode_args(args, kw)
+        key = f"{self.key_prefix}-{self.encode_args(args, kw)}"
         return key.replace(
             " ", "_"
         )  # XXX: temporary fix to handle spaces in the arguments
@@ -321,18 +317,17 @@ class MemcacheCache(Cache):
     def memcache(self):
         if servers := config.get("memcache_servers", None):
             return olmemcache.Client(servers)
-        else:
-            web.debug(
-                "Could not find memcache_servers in the configuration. Used dummy memcache."
-            )
-            try:
-                import mockcache
+        web.debug(
+            "Could not find memcache_servers in the configuration. Used dummy memcache."
+        )
+        try:
+            import mockcache
 
-                return mockcache.Client()
-            except ImportError:
-                from pymemcache.test.utils import MockMemcacheClient
+            return mockcache.Client()
+        except ImportError:
+            from pymemcache.test.utils import MockMemcacheClient
 
-                return MockMemcacheClient()
+            return MockMemcacheClient()
 
     def get(self, key):
         key = web.safestr(key)
@@ -476,10 +471,7 @@ class memoize:
         self.expires = expires
 
     def _make_key_func(self, key):
-        if isinstance(key, str):
-            return PrefixKeyFunc(key)
-        else:
-            return key
+        return PrefixKeyFunc(key) if isinstance(key, str) else key
 
     def __call__(self, f):
         """Returns the memoized version of f."""
@@ -512,12 +504,11 @@ class memoize:
             k0, k1 = key
             return cache[k0][k1]
         """
-        if isinstance(key, tuple):
-            k0, k1 = key
-            d = self.cache.get(k0)
-            return d and d.get(k1)
-        else:
+        if not isinstance(key, tuple):
             return self.cache.get(key)
+        k0, k1 = key
+        d = self.cache.get(k0)
+        return d and d.get(k1)
 
     def cache_set(self, key: str | tuple, value):
         """Sets a key to a given value in the cache.
@@ -535,13 +526,12 @@ class memoize:
         if self.cacheable and self.cacheable(key, value) is False:
             return
 
-        if isinstance(key, tuple):
-            k1, k2 = key
-            d = self.cache.get(k1) or {}
-            d[k2] = value
-            return self.cache.set(k1, d, expires=self.expires)
-        else:
+        if not isinstance(key, tuple):
             return self.cache.set(key, value, expires=self.expires)
+        k1, k2 = key
+        d = self.cache.get(k1) or {}
+        d[k2] = value
+        return self.cache.set(k1, d, expires=self.expires)
 
 
 class PrefixKeyFunc:
@@ -551,7 +541,7 @@ class PrefixKeyFunc:
         self.prefix = prefix
 
     def __call__(self, *a, **kw):
-        return self.prefix + "-" + self.encode_args(a, kw)
+        return f"{self.prefix}-{self.encode_args(a, kw)}"
 
     def encode_args(self, args, kw=None):
         kw = kw or {}
@@ -560,10 +550,7 @@ class PrefixKeyFunc:
         # strip [ and ] from key
         a = self.json_encode(list(args))[1:-1]
 
-        if kw:
-            return a + "-" + self.json_encode(kw)
-        else:
-            return a
+        return f"{a}-{self.json_encode(kw)}" if kw else a
 
     def json_encode(self, value):
         """json.dumps without extra spaces and consistent ordering of dictionary keys.

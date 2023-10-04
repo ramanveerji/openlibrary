@@ -30,10 +30,10 @@ def connect_to_pg(config_file):
     provided, they're used as well."""
     with open(config_file) as f:
         config = yaml.safe_load(f)
-    conf = {}
-    conf["db"] = config["db_parameters"].get("database") or config["db_parameters"].get(
-        "db"
-    )
+    conf = {
+        "db": config["db_parameters"].get("database")
+        or config["db_parameters"].get("db")
+    }
     if not conf['db']:
         raise KeyError("database/db")
     host = config["db_parameters"].get("host")
@@ -55,12 +55,11 @@ def get_config_info(infobase_config):
     """
     with open(infobase_config) as f:
         config = yaml.safe_load(f)
-    logroot = config.get("writelog")
-    return logroot
+    return config.get("writelog")
 
 
 def store_data(data, date):
-    uid = "counts-%s" % date
+    uid = f"counts-{date}"
     logger.debug(" Updating stats for %s - %s", uid, data)
     doc = web.ctx.site.store.get(uid) or {}
     doc.update(data)
@@ -178,7 +177,7 @@ def main(infobase_config, openlibrary_config, coverstore_config, ndays=1):
     )  # Beginning of the day
     logger.info("Gathering range data")
     data = {}
-    for i in range(int(ndays)):
+    for _ in range(int(ndays)):
         logger.info(" %s to %s", start, end)
         data.update(
             run_gathering_functions(

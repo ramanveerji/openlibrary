@@ -98,7 +98,7 @@ def do_we_want_it(isbn: str) -> tuple[bool, list]:
         'include_promises': 'true',  # include promises and sponsored books
         'search_id': isbn,
     }
-    url = '%s/book/marc/ol_dedupe.php' % lending.config_ia_domain
+    url = f'{lending.config_ia_domain}/book/marc/ol_dedupe.php'
     try:
         data = requests.get(url, params=params, timeout=2).json()
         dwwi = data.get('response', 0)
@@ -107,7 +107,7 @@ def do_we_want_it(isbn: str) -> tuple[bool, list]:
         logger.exception('DWWI Timeout')
         return False, []
     except:
-        logger.error("DWWI Failed for isbn %s" % isbn, exc_info=True)
+        logger.error(f"DWWI Failed for isbn {isbn}", exc_info=True)
     # err on the side of false negative
     return False, []
 
@@ -144,8 +144,9 @@ def qualifies_for_sponsorship(
     resp: dict = {'is_eligible': False, 'price': None}
 
     edition.isbn = edition.get_isbn13()
-    edition.cover = edition.get('covers') and (
-        'https://covers.openlibrary.org/b/id/%s-L.jpg' % edition.covers[0]
+    edition.cover = (
+        edition.get('covers')
+        and f'https://covers.openlibrary.org/b/id/{edition.covers[0]}-L.jpg'
     )
     amz_metadata = edition.isbn and get_amazon_metadata(edition.isbn) or {}
     req_fields = [
@@ -173,11 +174,11 @@ def qualifies_for_sponsorship(
     edition_id = edition.key.split('/')[-1]
     dwwi, matches = do_we_want_it(edition.isbn)
     if dwwi:
-        num_pages = int(edition_data['number_of_pages'])
         if not donate_only:
             if not scan_only:
                 bwb_price = get_betterworldbooks_metadata(edition.isbn).get('price_amt')
             if scan_only or bwb_price:
+                num_pages = int(edition_data['number_of_pages'])
                 scan_price_cents = SETUP_COST_CENTS + (PAGE_COST_CENTS * num_pages)
                 book_cost_cents = int(float(bwb_price) * 100) if not scan_only else 0
                 total_price_cents = scan_price_cents + book_cost_cents
@@ -223,14 +224,15 @@ def sync_completed_sponsored_books(dryrun: bool = False):
     )
     books = web.ctx.site.get_many(
         [
-            '/books/%s' % i.get('openlibrary_edition')
+            f"/books/{i.get('openlibrary_edition')}"
             for i in items
             if i.get('openlibrary_edition')
         ]
     )
     unsynced = [book for book in books if not book.ocaid]
     ocaid_lookup = {
-        '/books/%s' % i.get('openlibrary_edition'): i.get('identifier') for i in items
+        f"/books/{i.get('openlibrary_edition')}": i.get('identifier')
+        for i in items
     }
     fixed = []
     for book in unsynced:
@@ -251,8 +253,8 @@ def sync_completed_sponsored_books(dryrun: bool = False):
 
 
 def email_sponsor(recipient, book, bcc="mek@archive.org"):
-    url = 'https://openlibrary.org%s' % book.key
-    resp = web.sendmail(
+    url = f'https://openlibrary.org{book.key}'
+    return web.sendmail(
         "openlibrary@archive.org",
         recipient,
         "Internet Archive: Your Open Library Book Sponsorship is Ready",
@@ -267,7 +269,6 @@ def email_sponsor(recipient, book, bcc="mek@archive.org"):
         bcc=bcc,
         headers={'Content-Type': 'text/html;charset=utf-8'},
     )
-    return resp
 
 
 def get_sponsored_books():

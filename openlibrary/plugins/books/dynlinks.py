@@ -189,8 +189,7 @@ class DataProcessor:
         ]
 
     def get_work(self, doc):
-        works = [self.works[w['key']] for w in doc.get('works', [])]
-        if works:
+        if works := [self.works[w['key']] for w in doc.get('works', [])]:
             return works[0]
         else:
             return {}
@@ -222,10 +221,7 @@ class DataProcessor:
             return [subject(s, prefix) for s in w.get(name, '')]
 
         def get_value(v):
-            if isinstance(v, dict):
-                return v.get('value', '')
-            else:
-                return v
+            return v.get('value', '') if isinstance(v, dict) else v
 
         def format_excerpt(e):
             return {
@@ -309,18 +305,18 @@ class DataProcessor:
             availability = get_ia_availability(itemid)
 
             d = {
-                "preview_url": "https://archive.org/details/" + itemid,
+                "preview_url": f"https://archive.org/details/{itemid}",
                 "availability": availability,
                 "formats": {},
             }
 
             prefix = f"https://archive.org/download/{itemid}/{itemid}"
             if availability == 'full':
-                d["read_url"] = "https://archive.org/stream/%s" % (itemid)
+                d["read_url"] = f"https://archive.org/stream/{itemid}"
                 d['formats'] = {
-                    "pdf": {"url": prefix + ".pdf"},
-                    "epub": {"url": prefix + ".epub"},
-                    "text": {"url": prefix + "_djvu.txt"},
+                    "pdf": {"url": f"{prefix}.pdf"},
+                    "epub": {"url": f"{prefix}.epub"},
+                    "text": {"url": f"{prefix}_djvu.txt"},
                 }
             elif availability == "borrow":
                 d['borrow_url'] = "https://openlibrary.org{}/{}/borrow".format(
@@ -339,9 +335,9 @@ class DataProcessor:
         if doc.get('covers'):
             cover_id = doc['covers'][0]
             d['cover'] = {
-                "small": "https://covers.openlibrary.org/b/id/%s-S.jpg" % cover_id,
-                "medium": "https://covers.openlibrary.org/b/id/%s-M.jpg" % cover_id,
-                "large": "https://covers.openlibrary.org/b/id/%s-L.jpg" % cover_id,
+                "small": f"https://covers.openlibrary.org/b/id/{cover_id}-S.jpg",
+                "medium": f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg",
+                "large": f"https://covers.openlibrary.org/b/id/{cover_id}-L.jpg",
             }
 
         d['identifiers'] = trim(d['identifiers'])
@@ -419,9 +415,9 @@ def process_doc_for_viewapi(bib_key, page):
     }
 
     if page.get('covers'):
-        d['thumbnail_url'] = (
-            'https://covers.openlibrary.org/b/id/%s-S.jpg' % page["covers"][0]
-        )
+        d[
+            'thumbnail_url'
+        ] = f'https://covers.openlibrary.org/b/id/{page["covers"][0]}-S.jpg'
 
     return d
 
@@ -437,14 +433,12 @@ def format_result(result, options):
     format = options.get('format', '').lower()
     if format == 'json':
         return json.dumps(result)
-    else:  # js
-        json_data = json.dumps(result)
-        callback = options.get("callback")
-        if callback:
-            # the API handles returning the data as a callback
-            return "%s" % json_data
-        else:
-            return "var _OLBookInfo = %s;" % json_data
+    json_data = json.dumps(result)
+    return (
+        f"{json_data}"
+        if (callback := options.get("callback"))
+        else f"var _OLBookInfo = {json_data};"
+    )
 
 
 def dynlinks(bib_keys, options):

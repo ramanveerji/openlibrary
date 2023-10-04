@@ -184,44 +184,43 @@ class account_migration(delegate.page):
                     ),
                     content_type="application/json",
                 )
-            if not ol_account.itemname:
-                ia_account = InternetArchiveAccount.get(email=ol_account.email.lower())
-                if ia_account:
-                    ol_account.link(ia_account.itemname)
-                    return delegate.RawText(
-                        json.dumps(
-                            {
-                                'username': ol_account.username,
-                                'status': 'link-found',
-                                'itemname': ia_account.itemname,
-                                'ol-itemname': ol_account.itemname,
-                                'email': ol_account.email.lower(),
-                                'ia': ia_account,
-                            }
-                        ),
-                        content_type="application/json",
-                    )
-
-                password = OpenLibraryAccount.generate_random_password(16)
-                ia_account = InternetArchiveAccount.create(
-                    ol_account.username or ol_account.displayname,
-                    ol_account.email,
-                    password,
-                    verified=True,
-                    retries=USERNAME_RETRIES,
-                )
+            ia_account = InternetArchiveAccount.get(email=ol_account.email.lower())
+            if ia_account:
+                ol_account.link(ia_account.itemname)
                 return delegate.RawText(
                     json.dumps(
                         {
                             'username': ol_account.username,
-                            'email': ol_account.email,
+                            'status': 'link-found',
                             'itemname': ia_account.itemname,
-                            'password': password,
-                            'status': 'link-created',
+                            'ol-itemname': ol_account.itemname,
+                            'email': ol_account.email.lower(),
+                            'ia': ia_account,
                         }
                     ),
                     content_type="application/json",
                 )
+
+            password = OpenLibraryAccount.generate_random_password(16)
+            ia_account = InternetArchiveAccount.create(
+                ol_account.username or ol_account.displayname,
+                ol_account.email,
+                password,
+                verified=True,
+                retries=USERNAME_RETRIES,
+            )
+            return delegate.RawText(
+                json.dumps(
+                    {
+                        'username': ol_account.username,
+                        'email': ol_account.email,
+                        'itemname': ia_account.itemname,
+                        'password': password,
+                        'status': 'link-created',
+                    }
+                ),
+                content_type="application/json",
+            )
 
 
 class account(delegate.page):
@@ -262,7 +261,7 @@ class account_create(delegate.page):
     def is_plugin_enabled(self, name):
         return (
             name in delegate.get_plugins()
-            or "openlibrary.plugins." + name in delegate.get_plugins()
+            or f"openlibrary.plugins.{name}" in delegate.get_plugins()
         )
 
     def POST(self):
@@ -332,8 +331,7 @@ class account_login_json(delegate.page):
                 s3_secret_key=secret,
                 test=test,
             )
-            error = audit.get('error')
-            if error:
+            if error := audit.get('error'):
                 raise olib.code.BadRequest(error)
             expires = 3600 * 24 * 365 if remember.lower() == 'true' else ""
             web.setcookie(config.login_cookie_name, web.ctx.conn.get_auth_token())
@@ -341,7 +339,6 @@ class account_login_json(delegate.page):
                 ol_account = OpenLibraryAccount.get(email=audit['ia_email'])
                 if ol_account and ol_account.get_user().get_safe_mode() == 'yes':
                     web.setcookie('sfw', 'yes', expires=expires)
-        # Fallback to infogami user/pass
         else:
             from infogami.plugins.api.code import login as infogami_login
 
@@ -458,10 +455,7 @@ class account_login(delegate.page):
             return False
 
         # Has borrowed at least three books:
-        if not self.has_borrowed_at_least(3, account.s3_keys):
-            return False
-
-        return True
+        return bool(self.has_borrowed_at_least(3, account.s3_keys))
 
     def is_edu_domain(self, email: str) -> bool:
         if not email or '@' not in email:
@@ -484,18 +478,20 @@ class account_verify(delegate.page):
     path = "/account/verify/([0-9a-f]*)"
 
     def GET(self, code):
-        docs = web.ctx.site.store.values(type="account-link", name="code", value=code)
-        if docs:
-            doc = docs[0]
-
-            account = accounts.find(username=doc['username'])
-            if account and account['status'] != "pending":
-                return render['account/verify/activated'](account)
-            account.activate()
-            user = web.ctx.site.get("/people/" + doc['username'])  # TBD
-            return render['account/verify/success'](account)
-        else:
+        if not (
+            docs := web.ctx.site.store.values(
+                type="account-link", name="code", value=code
+            )
+        ):
             return render['account/verify/failed']()
+        doc = docs[0]
+
+        account = accounts.find(username=doc['username'])
+        if account and account['status'] != "pending":
+            return render['account/verify/activated'](account)
+        account.activate()
+        user = web.ctx.site.get("/people/" + doc['username'])  # TBD
+        return render['account/verify/success'](account)
 
     def POST(self, code=None):
         """Called to regenerate account verification code."""
@@ -539,8 +535,7 @@ class account_validation(delegate.page):
             return _('Username must be between 3-20 characters')
         if not re.match('^[A-Za-z0-9-_]{3,20}$', username):
             return _('Username may only contain numbers and letters')
-        ol_account = OpenLibraryAccount.get(username=username)
-        if ol_account:
+        if ol_account := OpenLibraryAccount.get(username=username):
             return _("Username unavailable")
 
     @staticmethod
@@ -548,8 +543,7 @@ class account_validation(delegate.page):
         if not (email and re.match(r'.*@.*\..*', email)):
             return _('Must be a valid email address')
 
-        ol_account = OpenLibraryAccount.get(email=email)
-        if ol_account:
+        if ol_account := OpenLibraryAccount.get(email=email):
             return _('Email already registered')
 
     def GET(self):
@@ -618,11 +612,9 @@ class account_ia_email_forgot(delegate.page):
         err = ""
 
         if valid_email(i.email):
-            act = OpenLibraryAccount.get(email=i.email)
-            if act:
+            if act := OpenLibraryAccount.get(email=i.email):
                 if OpenLibraryAccount.authenticate(i.email, i.password) == "ok":
-                    ia_act = act.get_linked_ia_account()
-                    if ia_act:
+                    if ia_act := act.get_linked_ia_account():
                         return render_template(
                             'account/email/forgot-ia', email=ia_act.email
                         )
@@ -646,9 +638,7 @@ class account_ol_email_forgot(delegate.page):
     def POST(self):
         i = web.input(username='', password='')
         err = ""
-        act = OpenLibraryAccount.get(username=i.username)
-
-        if act:
+        if act := OpenLibraryAccount.get(username=i.username):
             if OpenLibraryAccount.authenticate(act.email, i.password) == "ok":
                 return render_template('account/email/forgot', email=act.email)
             else:
@@ -786,7 +776,7 @@ class account_lists(delegate.page):
     @require_login
     def GET(self):
         user = accounts.get_current_user()
-        raise web.seeother(user.key + '/lists')
+        raise web.seeother(f'{user.key}/lists')
 
 
 class account_my_books_redirect(delegate.page):
@@ -1120,7 +1110,7 @@ def send_forgot_password_email(username, email):
     doc = create_link_doc(key, username, email)
     web.ctx.site.store[key] = doc
 
-    link = web.ctx.home + "/account/password/reset/" + doc['code']
+    link = f"{web.ctx.home}/account/password/reset/" + doc['code']
     msg = render_template(
         "email/password/reminder", username=username, email=email, link=link
     )

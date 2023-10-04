@@ -70,9 +70,7 @@ def pick_from_matches(author, match):
         maybe = [m for m in match if 'date' in m]
     if not maybe:
         maybe = match
-    if len(maybe) == 1:
-        return maybe[0]
-    return min(maybe, key=key_int)
+    return maybe[0] if len(maybe) == 1 else min(maybe, key=key_int)
 
 
 def find_author(name):
@@ -129,7 +127,7 @@ def find_entity(author):
             continue
         seen.add(key)
         orig_key = key
-        assert a.type.key == '/type/author'
+        assert a.type.orig_key == '/type/author'
         if 'birth_date' in author and 'birth_date' not in a:
             continue
         if 'birth_date' not in author and 'birth_date' in a:
@@ -139,9 +137,7 @@ def find_entity(author):
         match.append(a)
     if not match:
         return None
-    if len(match) == 1:
-        return match[0]
-    return pick_from_matches(author, match)
+    return match[0] if len(match) == 1 else pick_from_matches(author, match)
 
 
 def import_author(author, eastern=False):
@@ -158,11 +154,11 @@ def import_author(author, eastern=False):
     """
     if existing := find_entity(author):
         assert existing.type.key == '/type/author'
-        for k in 'last_modified', 'id', 'revision', 'created':
+        for _ in ('last_modified', 'id', 'revision', 'created'):
             if existing.k:
                 del existing.k
         new = existing
-        if 'death_date' in author and 'death_date' not in existing:
+        if 'death_date' in author and 'death_date' not in new:
             new['death_date'] = author['death_date']
         return new
     if author.get('entity_type') != 'org' and not eastern:
@@ -179,7 +175,7 @@ class InvalidLanguage(Exception):
         self.code = code
 
     def __str__(self):
-        return "invalid language code: '%s'" % self.code
+        return f"invalid language code: '{self.code}'"
 
 
 type_map = {'description': 'text', 'notes': 'text', 'number_of_pages': 'int'}
@@ -208,12 +204,12 @@ def build_query(rec):
             continue
         if k in ('languages', 'translated_from'):
             for language in v:
-                if web.ctx.site.get('/languages/' + language) is None:
+                if web.ctx.site.get(f'/languages/{language}') is None:
                     raise InvalidLanguage(language)
-            book[k] = [{'key': '/languages/' + language} for language in v]
+            book[k] = [{'key': f'/languages/{language}'} for language in v]
             continue
         if k in type_map:
-            t = '/type/' + type_map[k]
+            t = f'/type/{type_map[k]}'
             if isinstance(v, list):
                 book[k] = [{'type': t, 'value': i} for i in v]
             else:

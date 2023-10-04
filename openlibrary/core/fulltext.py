@@ -15,9 +15,9 @@ def fulltext_search_api(params):
     if not hasattr(config, 'plugin_inside'):
         return {'error': 'Unable to prepare search engine'}
     search_endpoint = config.plugin_inside['search_endpoint']
-    search_select = search_endpoint + '?' + urlencode(params, 'utf-8')
+    search_select = f'{search_endpoint}?' + urlencode(params, 'utf-8')
 
-    logger.debug('URL: ' + search_select)
+    logger.debug(f'URL: {search_select}')
     try:
         response = requests.get(search_select, timeout=30)
         response.raise_for_status()
@@ -47,7 +47,7 @@ def fulltext_search(q, page=1, limit=100, js=False, facets=False):
             return []
         editions = web.ctx.site.get_many(
             [
-                '/books/%s' % availability[ocaid].get('openlibrary_edition')
+                f"/books/{availability[ocaid].get('openlibrary_edition')}"
                 for ocaid in availability
                 if availability[ocaid].get('openlibrary_edition')
             ]

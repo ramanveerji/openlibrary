@@ -24,11 +24,9 @@ def parse_subject(e, key):
     )
     val = e.find('.//{http://www.w3.org/1999/02/22-rdf-syntax-ns#}value')
     if resource_type == 'http://purl.org/dc/terms/DDC':
-        new_key = 'dewey_decimal_class'
-        return (new_key, val.text)
+        return 'dewey_decimal_class', val.text
     elif resource_type == 'http://purl.org/dc/terms/LCC':
-        new_key = 'lc_classification'
-        return (new_key, val.text)
+        return 'lc_classification', val.text
     else:
         return (None, None)
 

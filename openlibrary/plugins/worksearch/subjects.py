@@ -68,13 +68,11 @@ class subjects(delegate.page):
         )
 
         delegate.context.setdefault('cssfile', 'subject')
-        if not subj or subj.work_count == 0:
-            web.ctx.status = "404 Not Found"
-            page = render_template('subjects/notfound.tmpl', key)
-        else:
-            page = render_template("subjects", page=subj)
+        if subj and subj.work_count != 0:
+            return render_template("subjects", page=subj)
 
-        return page
+        web.ctx.status = "404 Not Found"
+        return render_template('subjects/notfound.tmpl', key)
 
     def normalize_key(self, key):
         key = key.lower()
@@ -113,7 +111,7 @@ class subjects_json(delegate.page):
         i.offset = safeint(i.offset, 0)
         if i.limit > MAX_RESULTS:
             msg = json.dumps(
-                {'error': 'Specified limit exceeds maximum of %s.' % MAX_RESULTS}
+                {'error': f'Specified limit exceeds maximum of {MAX_RESULTS}.'}
             )
             raise web.HTTPError('400 Bad Request', data=msg)
 
@@ -356,8 +354,7 @@ class SubjectEngine:
                     break
 
             q = {"type": "/type/tag", "name": subject.name, "tag_type": "subject"}
-            match = web.ctx.site.things(q)
-            if match:
+            if match := web.ctx.site.things(q):
                 tag = web.ctx.site.get(match[0])
                 match = {
                     'name': tag.name,
@@ -379,10 +376,14 @@ class SubjectEngine:
 
     def parse_key(self, key):
         """Returns prefix and path from the key."""
-        for d in SUBJECTS:
-            if key.startswith(d.prefix):
-                return d.prefix, key[len(d.prefix) :]
-        return None, None
+        return next(
+            (
+                (d.prefix, key[len(d.prefix) :])
+                for d in SUBJECTS
+                if key.startswith(d.prefix)
+            ),
+            (None, None),
+        )
 
     def normalize_key(self, key):
         return str_to_key(key).lower()
@@ -396,7 +397,7 @@ class SubjectEngine:
             )
         elif facet == "author_key":
             return web.storage(name=label, key=f"/authors/{value}", count=count)
-        elif facet in ["subject_facet", "person_facet", "place_facet", "time_facet"]:
+        elif facet in {"subject_facet", "person_facet", "place_facet", "time_facet"}:
             return web.storage(
                 key=finddict(SUBJECTS, facet=facet).prefix
                 + str_to_key(value).replace(" ", "_"),

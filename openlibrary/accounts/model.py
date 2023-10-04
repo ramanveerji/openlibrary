@@ -94,12 +94,12 @@ def generate_uuid():
 
 def send_verification_email(username, email):
     """Sends account verification email."""
-    key = "account/%s/verify" % username
+    key = f"account/{username}/verify"
 
     doc = create_link_doc(key, username, email)
     web.ctx.site.store[key] = doc
 
-    link = web.ctx.home + "/account/verify/" + doc['code']
+    link = f"{web.ctx.home}/account/verify/" + doc['code']
     msg = render_template(
         "email/account/verify", username=username, email=email, password=None, link=link
     )
@@ -223,8 +223,7 @@ class Account(web.storage):
         try:
             web.ctx.site.login(self.username, password)
         except ClientException as e:
-            code = e.get_data().get("code")
-            return code
+            return e.get_data().get("code")
         else:
             self['last_login'] = datetime.datetime.utcnow().isoformat()
             self._save()
@@ -239,10 +238,10 @@ class Account(web.storage):
 
     def generate_login_code(self):
         """Returns a string that can be set as login cookie to log in as this user."""
-        user_key = "/people/" + self.username
+        user_key = f"/people/{self.username}"
         t = datetime.datetime(*time.gmtime()[:6]).isoformat()
         text = f"{user_key},{t}"
-        return text + "," + generate_hash(get_secret_key(), text)
+        return f"{text},{generate_hash(get_secret_key(), text)}"
 
     def _save(self):
         """Saves this account in store."""
@@ -266,27 +265,21 @@ class Account(web.storage):
         :rtype: User
         :returns: Not an Account obj, but a /people/xxx User
         """
-        key = "/people/" + self.username
+        key = f"/people/{self.username}"
         return web.ctx.site.get(key)
 
     def get_creation_info(self):
-        key = "/people/" + self.username
+        key = f"/people/{self.username}"
         doc = web.ctx.site.get(key)
         return doc.get_creation_info()
 
     def get_activation_link(self):
-        key = "account/%s/verify" % self.username
-        if doc := web.ctx.site.store.get(key):
-            return Link(doc)
-        else:
-            return False
+        key = f"account/{self.username}/verify"
+        return Link(doc) if (doc := web.ctx.site.store.get(key)) else False
 
     def get_password_reset_link(self):
-        key = "account/%s/password" % self.username
-        if doc := web.ctx.site.store.get(key):
-            return Link(doc)
-        else:
-            return False
+        key = f"account/{self.username}/password"
+        return Link(doc) if (doc := web.ctx.site.store.get(key)) else False
 
     def get_links(self):
         """Returns all the verification links present in the database."""
@@ -329,12 +322,12 @@ class Account(web.storage):
             else generate_uuid()
         )
         new_username = f'anonymous-{uuid}'
-        results = {'new_username': new_username}
-
-        # Delete all of the patron's book notes:
-        results['booknotes_count'] = Booknotes.delete_all_by_username(
-            self.username, _test=test
-        )
+        results = {
+            'new_username': new_username,
+            'booknotes_count': Booknotes.delete_all_by_username(
+                self.username, _test=test
+            ),
+        }
 
         # Anonymize patron's username in OL DB tables:
         results['ratings_count'] = Ratings.update_username(
@@ -453,7 +446,7 @@ class OpenLibraryAccount(Account):
             raise ValueError('something_went_wrong')
 
         if verified:
-            key = "account/%s/verify" % username
+            key = f"account/{username}/verify"
             doc = create_link_doc(key, username, email)
             web.ctx.site.store[key] = doc
             web.ctx.site.activate_account(username=username)
@@ -502,10 +495,7 @@ class OpenLibraryAccount(Account):
             type="account", name="lusername", value=username, limit=1
         )
 
-        if len(lower_match):
-            return cls(lower_match[0])
-
-        return None
+        return cls(lower_match[0]) if len(lower_match) else None
 
     @classmethod
     def get_by_link(cls, link, test=False):
@@ -530,8 +520,8 @@ class OpenLibraryAccount(Account):
         """
         email = email.strip()
         email_doc = web.ctx.site.store.get(
-            "account-email/" + email
-        ) or web.ctx.site.store.get("account-email/" + email.lower())
+            f"account-email/{email}"
+        ) or web.ctx.site.store.get(f"account-email/{email.lower()}")
         if email_doc and 'username' in email_doc:
             doc = web.ctx.site.store.get("account/" + email_doc['username'])
             return cls(doc) if doc else None
@@ -559,7 +549,7 @@ class OpenLibraryAccount(Account):
         """Careful, this will save any other changes to the ol user object as
         well
         """
-        itemname = itemname if itemname.startswith('@') else '@%s' % itemname
+        itemname = itemname if itemname.startswith('@') else f'@{itemname}'
 
         _ol_account = web.ctx.site.store.get(self._key)
         _ol_account['internetarchive_itemname'] = itemname
@@ -590,8 +580,7 @@ class OpenLibraryAccount(Account):
         try:
             web.ctx.site.login(ol_account.username, password)
         except ClientException as e:
-            code = e.get_data().get("code")
-            return code
+            return e.get_data().get("code")
         else:
             return "ok"
 
@@ -791,11 +780,11 @@ def audit_accounts(
             'values': {'access': s3_access_key, 'secret': s3_secret_key},
         }
         email = r['username']
-    else:
-        if not valid_email(email):
-            return {'error': 'invalid_email'}
+    elif valid_email(email):
         ia_login = InternetArchiveAccount.authenticate(email, password)
 
+    else:
+        return {'error': 'invalid_email'}
     if 'values' in ia_login and any(
         ia_login['values'].get('reason') == err
         for err in ['account_blocked', 'account_locked']
@@ -804,72 +793,72 @@ def audit_accounts(
 
     if not ia_login.get('success'):
         # Prioritize returning other errors over `account_not_found`
-        if ia_login['values'].get('reason') != "account_not_found":
-            return {'error': ia_login['values'].get('reason')}
-        return {'error': 'account_not_found'}
+        return (
+            {'error': ia_login['values'].get('reason')}
+            if ia_login['values'].get('reason') != "account_not_found"
+            else {'error': 'account_not_found'}
+        )
+    ia_account = InternetArchiveAccount.get(email=email, test=test)
 
+    # Get the OL account which links to this IA account
+    ol_account = OpenLibraryAccount.get(link=ia_account.itemname, test=test)
+    link = ol_account.itemname if ol_account else None
+
+    # The fact that there is no link implies no Open Library account exists
+    # containing a link to this Internet Archive account...
+    if not link:
+        # then check if there's an Open Library account which shares
+        # the same email as this IA account.
+        ol_account = OpenLibraryAccount.get(email=email, test=test)
+
+        # If an Open Library account with a matching email account exists...
+        # Check if it is linked already, i.e. has an itemname set. We already
+        # determined that no OL account is linked to our IA account. Therefore this
+        # Open Library account having the same email as our IA account must have
+        # been linked to a different Internet Archive account.
+        if ol_account and ol_account.itemname:
+            return {'error': 'wrong_ia_account'}
+
+    # At this point, it must either be the case that
+    # (a) `ol_account` already links to our IA account (in which case `link` has a
+    #     correct value),
+    # (b) that an unlinked `ol_account` shares the same email as our IA account and
+    #     thus can and should be safely linked to our IA account, or
+    # (c) no `ol_account` which is linked or can be linked has been found and
+    #     therefore, assuming lending.config_ia_auth_only is enabled, we need to
+    #     create and link it.
+    if not ol_account:
+        try:
+            ol_account = OpenLibraryAccount.create(
+                ia_account.itemname,
+                email,
+                # since switching to IA creds, OL password not used; make
+                # challenging random
+                secrets.token_urlsafe(32),
+                displayname=ia_account.screenname,
+                verified=True,
+                retries=5,
+                test=test,
+            )
+        except ValueError as e:
+            return {'error': 'max_retries_exceeded'}
+
+        ol_account.link(ia_account.itemname)
+        stats.increment('ol.account.xauth.ia-auto-created-ol')
+
+    # So long as there's either a linked OL account, or an unlinked OL account with
+    # the same email, set them as linked (and let the finalize logic link them, if
+    # needed)
     else:
-        ia_account = InternetArchiveAccount.get(email=email, test=test)
-
-        # Get the OL account which links to this IA account
-        ol_account = OpenLibraryAccount.get(link=ia_account.itemname, test=test)
-        link = ol_account.itemname if ol_account else None
-
-        # The fact that there is no link implies no Open Library account exists
-        # containing a link to this Internet Archive account...
-        if not link:
-            # then check if there's an Open Library account which shares
-            # the same email as this IA account.
-            ol_account = OpenLibraryAccount.get(email=email, test=test)
-
-            # If an Open Library account with a matching email account exists...
-            # Check if it is linked already, i.e. has an itemname set. We already
-            # determined that no OL account is linked to our IA account. Therefore this
-            # Open Library account having the same email as our IA account must have
-            # been linked to a different Internet Archive account.
-            if ol_account and ol_account.itemname:
-                return {'error': 'wrong_ia_account'}
-
-        # At this point, it must either be the case that
-        # (a) `ol_account` already links to our IA account (in which case `link` has a
-        #     correct value),
-        # (b) that an unlinked `ol_account` shares the same email as our IA account and
-        #     thus can and should be safely linked to our IA account, or
-        # (c) no `ol_account` which is linked or can be linked has been found and
-        #     therefore, assuming lending.config_ia_auth_only is enabled, we need to
-        #     create and link it.
-        if not ol_account:
-            try:
-                ol_account = OpenLibraryAccount.create(
-                    ia_account.itemname,
-                    email,
-                    # since switching to IA creds, OL password not used; make
-                    # challenging random
-                    secrets.token_urlsafe(32),
-                    displayname=ia_account.screenname,
-                    verified=True,
-                    retries=5,
-                    test=test,
-                )
-            except ValueError as e:
-                return {'error': 'max_retries_exceeded'}
-
+        if not ol_account.itemname:
             ol_account.link(ia_account.itemname)
-            stats.increment('ol.account.xauth.ia-auto-created-ol')
-
-        # So long as there's either a linked OL account, or an unlinked OL account with
-        # the same email, set them as linked (and let the finalize logic link them, if
-        # needed)
-        else:
-            if not ol_account.itemname:
-                ol_account.link(ia_account.itemname)
-                stats.increment('ol.account.xauth.auto-linked')
-            if not ol_account.verified:
-                # The IA account is activated (verifying the integrity of their email),
-                # so we make a judgement call to safely activate them.
-                ol_account.activate()
-            if ol_account.blocked:
-                return {'error': 'account_blocked'}
+            stats.increment('ol.account.xauth.auto-linked')
+        if not ol_account.verified:
+            # The IA account is activated (verifying the integrity of their email),
+            # so we make a judgement call to safely activate them.
+            ol_account.activate()
+        if ol_account.blocked:
+            return {'error': 'account_blocked'}
 
     if require_link:
         ol_account = OpenLibraryAccount.get(link=ia_account.itemname, test=test)

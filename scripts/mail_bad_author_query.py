@@ -32,8 +32,7 @@ for row in db_error.query(
     bad_count += 1
     body += '-' * 60 + '\nAuthor name: ' + author + '\n'
     body += (
-        'http://openlibrary.org/query.json?type=/type/author&name=%s'
-        % web.urlquote(author)
+        f'http://openlibrary.org/query.json?type=/type/author&name={web.urlquote(author)}'
         + '\n\n'
     )
     body += row.result + '\n'

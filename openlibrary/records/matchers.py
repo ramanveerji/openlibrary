@@ -37,8 +37,7 @@ def match_isbn(params):
         isbns = params["identifiers"]["isbn"]
         q = {'type': '/type/edition', 'isbn_': [str(x) for x in isbns]}
         logger.debug("ISBN query : %s", q)
-        ekeys = list(web.ctx.site.things(q))
-        if ekeys:
+        if ekeys := list(web.ctx.site.things(q)):
             return ekeys
     return []
 

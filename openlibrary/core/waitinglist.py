@@ -30,9 +30,8 @@ _wl_api = lending.ia_lending_api
 def _get_book(identifier):
     if keys := web.ctx.site.things({"type": '/type/edition', "ocaid": identifier}):
         return web.ctx.site.get(keys[0])
-    else:
-        key = "/books/ia:" + identifier
-        return web.ctx.site.get(key)
+    key = f"/books/ia:{identifier}"
+    return web.ctx.site.get(key)
 
 
 class WaitingLoan(dict):
@@ -50,7 +49,7 @@ class WaitingLoan(dict):
             username = account.username
         elif userid.startswith('ol:'):
             username = userid[len("ol:") :]
-        return "/people/%s" % username
+        return f"/people/{username}"
 
     def get_user(self):
         user_key = self.get_user_key()
@@ -127,8 +126,7 @@ class WaitingLoan(dict):
         if not itemname:
             account = OpenLibraryAccount.get(key=user_key)
             itemname = account.itemname
-        result = cls.query(userid=itemname, identifier=identifier)
-        if result:
+        if result := cls.query(userid=itemname, identifier=identifier):
             return result[0]
 
     @classmethod
@@ -144,7 +142,6 @@ class WaitingLoan(dict):
         """Delete this waiting loan from database."""
         # db.delete("waitingloan", where="id=$id", vars=self)
         _wl_api.leave_waitinglist(self['identifier'], self['userid'])
-        pass
 
     def update(self, **kw):
         # db.update("waitingloan", where="id=$id", vars=self, **kw)
@@ -194,10 +191,7 @@ def get_waitinglist_for_book(book_key):
     This is an admin-only feature. It works only if the current user is an admin.
     """
     book = web.ctx.site.get(book_key)
-    if book and book.ocaid:
-        return WaitingLoan.query(identifier=book.ocaid)
-    else:
-        return []
+    return WaitingLoan.query(identifier=book.ocaid) if book and book.ocaid else []
 
 
 def get_waitinglist_size(book_key):
@@ -236,15 +230,13 @@ def leave_waitinglist(user_key, book_key, itemname=None):
     """Removes the given user from the waiting list of the given book."""
     book = web.ctx.site.get(book_key)
     if book and book.ocaid:
-        w = WaitingLoan.find(user_key, book.ocaid, itemname=itemname)
-        if w:
+        if w := WaitingLoan.find(user_key, book.ocaid, itemname=itemname):
             w.delete()
 
 
 def on_waitinglist_update(identifier):
     """Triggered when a waiting list is updated."""
-    waitinglist = WaitingLoan.query(identifier=identifier)
-    if waitinglist:
+    if waitinglist := WaitingLoan.query(identifier=identifier):
         book = _get_book(identifier)
         checkedout = lending.is_loaned_out(identifier)
         # If some people are waiting and the book is checked out,
@@ -337,5 +329,5 @@ def update_all_ebooks():
         # would have already been updated
         if id in identifiers:
             continue
-        logger.info("updating ebooks/" + id)
-        update_ebook('ebooks/' + id, borrowed='true', wl_size=0)
+        logger.info(f"updating ebooks/{id}")
+        update_ebook(f'ebooks/{id}', borrowed='true', wl_size=0)

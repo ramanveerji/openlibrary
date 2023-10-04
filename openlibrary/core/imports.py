@@ -22,8 +22,9 @@ logger = logging.getLogger("openlibrary.imports")
 class Batch(web.storage):
     @staticmethod
     def find(name, create=False):
-        result = db.query("SELECT * FROM import_batch where name=$name", vars=locals())
-        if result:
+        if result := db.query(
+            "SELECT * FROM import_batch where name=$name", vars=locals()
+        ):
             return Batch(result[0])
         elif create:
             return Batch.new(name)
@@ -83,8 +84,7 @@ class Batch(web.storage):
 
         logger.info("batch %s: adding %d items", self.name, len(items))
 
-        items = self.dedupe_items(self.normalize_items(items))
-        if items:
+        if items := self.dedupe_items(self.normalize_items(items)):
             try:
                 # TODO: Upgrade psql and use `INSERT OR IGNORE`
                 # otherwise it will fail on UNIQUE `data`
@@ -112,8 +112,7 @@ class ImportItem(web.storage):
 
     @staticmethod
     def find_by_identifier(identifier):
-        result = db.where("import_item", ia_id=identifier)
-        if result:
+        if result := db.where("import_item", ia_id=identifier):
             return ImportItem(result[0])
 
     def set_status(self, status, error=None, ol_key=None):
@@ -222,8 +221,7 @@ class Stats:
         d = defaultdict(dict)
         for row in result:
             d[row.date][row.status] = row.count
-        date_counts = sorted(d.items(), reverse=True)
-        return date_counts
+        return sorted(d.items(), reverse=True)
 
     @classmethod
     def get_count_by_date_status(cls, ndays=10, use_cache=False):

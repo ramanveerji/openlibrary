@@ -71,9 +71,8 @@ class CommunityEditsQueue:
             "limit": limit,
             "offset": limit * (page - 1),
             "vars": {**kwargs},
+            'where': cls.where_clause(mode, **kwargs),
         }
-
-        query_kwargs['where'] = cls.where_clause(mode, **kwargs)
 
         if order:
             query_kwargs['order'] = order
@@ -133,10 +132,7 @@ class CommunityEditsQueue:
             [f'status={status}' for status in cls.MODES[mode]] if mode != 'all' else []
         )
 
-        where_clause = ''
-
-        if wheres:
-            where_clause = f'{" AND ".join(wheres)}'
+        where_clause = f'{" AND ".join(wheres)}' if wheres else ''
         if status_list:
             status_query = f'({" OR ".join(status_list)})'
             if where_clause:
@@ -166,9 +162,6 @@ class CommunityEditsQueue:
 
     @classmethod
     def submit_delete_request(cls, olid, submitter, comment=None):
-        if not comment:
-            # some default note from submitter
-            pass
         url = f"{olid}/-/edit?m=delete"
         cls.submit_request(cls, url, submitter=submitter, comment=comment)
 

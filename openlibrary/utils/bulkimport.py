@@ -26,8 +26,7 @@ class DocumentLoader:
         that sequence and returns list of n numbers.
         """
         rows = self.db.query(
-            "SELECT setval($seqname, $n + (select last_value from %s)) as value"
-            % seqname,
+            f"SELECT setval($seqname, $n + (select last_value from {seqname})) as value",
             vars=locals(),
         )
         end = rows[0].value + 1  # lastval is inclusive
@@ -292,10 +291,9 @@ class Reindexer:
             vars=locals(),
         )
 
-        documents = [
+        return [
             dict(json.loads(row.data), id=row.id, type_id=row.type) for row in rows
         ]
-        return documents
 
     def delete_earlier_index(self, documents, tables=None):
         """Remove all previous entries corresponding to the given documents"""
@@ -335,7 +333,7 @@ class Reindexer:
                 for k, v in value.items():
                     if k == "type":  # no need to index type
                         continue
-                    insert(doc, name + '.' + k, v, ordering=ordering)
+                    insert(doc, f'{name}.{k}', v, ordering=ordering)
             else:
                 datatype = self._find_datatype(value)
                 table = datatype and self.schema.find_table(
@@ -371,10 +369,9 @@ class Reindexer:
         return self._property_cache[type_id, name]
 
     def _get_property_id(self, type_id, name):
-        d = self.db.select(
+        if d := self.db.select(
             'property', where='name=$name AND type=$type_id', vars=locals()
-        )
-        if d:
+        ):
             return d[0].id
         else:
             return self.db.insert('property', type=type_id, name=name)

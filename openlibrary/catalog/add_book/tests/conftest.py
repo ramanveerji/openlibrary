@@ -15,7 +15,7 @@ def add_languages(mock_site):
         mock_site.save(
             {
                 'code': code,
-                'key': '/languages/' + code,
+                'key': f'/languages/{code}',
                 'name': name,
                 'type': {'key': '/type/language'},
             }

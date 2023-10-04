@@ -45,7 +45,7 @@ OLID_URLS = {'A': 'authors', 'M': 'books', 'W': 'works'}
 re_isbn_field = re.compile(r'^\s*(?:isbn[:\s]*)?([-0-9X]{9,})\s*$', re.I)
 re_olid = re.compile(r'^OL\d+([AMW])$')
 
-plurals = {f + 's': f for f in ('publisher', 'author')}
+plurals = {f'{f}s': f for f in ('publisher', 'author')}
 
 if hasattr(config, 'plugin_worksearch'):
     solr_select_url = (
@@ -199,18 +199,7 @@ def run_solr_query(
         values = param[field]
         params += [('fq', f'{field}:"{val}"') for val in values if val]
 
-    # Many fields in solr use the convention of `*_facet` both
-    # as a facet key and as the explicit search query key.
-    # Examples being publisher_facet, subject_facet?
-    # `author_key` & `author_facet` is an example of a mismatch that
-    # breaks this rule. This code makes it so, if e.g. `author_facet` is used where
-    # `author_key` is intended, both will be supported (and vis versa)
-    # This "doubling up" has no real performance implication
-    # but does fix cases where the search query is different than the facet names
-    q = None
-    if param.get('q'):
-        q = scheme.process_user_query(param['q'])
-
+    q = scheme.process_user_query(param['q']) if param.get('q') else None
     if params_q := scheme.build_q_from_params(param):
         q = f'{q} {params_q}' if q else params_q
 
@@ -406,9 +395,9 @@ class search(delegate.page):
         # q2 param gets removed and prepended to q via a redirect
         _i = web.input(q='', q2='')
         if _i.q.strip() and _i.q2.strip():
-            _i.q = _i.q2.strip() + ' ' + _i.q.strip()
+            _i.q = f'{_i.q2.strip()} {_i.q.strip()}'
             _i.pop('q2')
-            raise web.seeother('/search?' + urllib.parse.urlencode(_i))
+            raise web.seeother(f'/search?{urllib.parse.urlencode(_i)}')
 
         i = web.input(
             author_key=[],
@@ -438,16 +427,24 @@ class search(delegate.page):
 
         q_list = []
         if q := i.get('q', '').strip():
-            m = re_olid.match(q)
-            if m:
+            if m := re_olid.match(q):
                 raise web.seeother(f'/{OLID_URLS[m.group(1)]}/{q}')
-            m = re_isbn_field.match(q)
-            if m:
+            if m := re_isbn_field.match(q):
                 self.isbn_redirect(m.group(1))
             q_list.append(q)
-        for k in ('title', 'author', 'isbn', 'subject', 'place', 'person', 'publisher'):
-            if k in i:
-                q_list.append(f'{k}:{fully_escape_query(i[k].strip())}')
+        q_list.extend(
+            f'{k}:{fully_escape_query(i[k].strip())}'
+            for k in (
+                'title',
+                'author',
+                'isbn',
+                'subject',
+                'place',
+                'person',
+                'publisher',
+            )
+            if k in i
+        )
         return render.work_search(
             i,
             ' '.join(q_list),
@@ -569,15 +566,13 @@ class subject_search(delegate.page):
         return render_template('search/subjects', self.get_results)
 
     def get_results(self, q, offset=0, limit=100):
-        response = run_solr_query(
+        return run_solr_query(
             SubjectSearchScheme(),
             {'q': q},
             offset=offset,
             rows=limit,
             sort='work_count desc',
         )
-
-        return response
 
 
 class subject_search_json(subject_search):
@@ -609,7 +604,7 @@ class author_search(delegate.page):
         return render_template('search/authors', self.get_results)
 
     def get_results(self, q, offset=0, limit=100, fields='*', sort=''):
-        resp = run_solr_query(
+        return run_solr_query(
             AuthorSearchScheme(),
             {'q': q},
             offset=offset,
@@ -617,8 +612,6 @@ class author_search(delegate.page):
             fields=fields,
             sort=sort,
         )
-
-        return resp
 
 
 class author_search_json(author_search):
@@ -744,11 +737,7 @@ class search_json(delegate.page):
             language=[],
             public_scan_b=[],
         )
-        if 'query' in i:
-            query = json.loads(i.query)
-        else:
-            query = i
-
+        query = json.loads(i.query) if 'query' in i else i
         sort = query.get('sort', None)
 
         limit = safeint(query.pop("limit", "100"), default=100)

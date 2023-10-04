@@ -198,11 +198,11 @@ def render_component(
 
     if len(included) == 0:
         # Need to include Vue
-        html += '<script src="%s"></script>' % static_url('build/vue.js')
+        html += f"""<script src="{static_url('build/vue.js')}"></script>"""
 
     if name not in included:
-        url = static_url('build/components/production/ol-%s.min.js' % name)
-        html += '<script src="%s"></script>' % url
+        url = static_url(f'build/components/production/ol-{name}.min.js')
+        html += f'<script src="{url}"></script>'
         included.append(name)
 
     html += f'<ol-{kebab_case(name)} {attrs_str}></ol-{kebab_case(name)}>'
@@ -227,26 +227,21 @@ def get_message_from_template(
     d = render_template(template_name).get("messages", {})
     msg = d.get(name) or name.lower().replace("_", " ")
 
-    if msg and args:
-        return msg % args
-    else:
-        return msg
+    return msg % args if msg and args else msg
 
 
 @public
 def list_recent_pages(path, limit=100, offset=0):
     """Lists all pages with name path/* in the order of last_modified."""
-    q = {}
+    q = {
+        'key~': f'{path}/*',
+        'a:type!=': '/type/delete',
+        'b:type!=': '/type/redirect',
+        'limit': limit,
+        'offset': offset,
+        'sort': '-last_modified',
+    }
 
-    q['key~'] = path + '/*'
-    # don't show /type/delete and /type/redirect
-    q['a:type!='] = '/type/delete'
-    q['b:type!='] = '/type/redirect'
-
-    q['sort'] = 'key'
-    q['limit'] = limit
-    q['offset'] = offset
-    q['sort'] = '-last_modified'
     # queries are very slow with != conditions
     # q['type'] != '/type/delete'
     return web.ctx.site.get_many(web.ctx.site.things(q))
@@ -437,9 +432,9 @@ def get_changes_v2(
         return change
 
     def get_comment(change):
-        t = get_template("recentchanges/" + change.kind + "/comment") or get_template(
-            "recentchanges/default/comment"
-        )
+        t = get_template(
+            f"recentchanges/{change.kind}/comment"
+        ) or get_template("recentchanges/default/comment")
         return t(change, page)
 
     query['key'] = page.key
@@ -482,10 +477,9 @@ def get_version(key, revision):
 
 @public
 def get_recent_author(doc: "Work") -> "Thing | None":
-    versions = get_changes_v1(
+    if versions := get_changes_v1(
         {'key': doc.key, 'limit': 1, "offset": 0}, revision=doc.revision
-    )
-    if versions:
+    ):
         return versions[0].author
     return None
 
@@ -516,23 +510,20 @@ class HasGetKeyRevision(Protocol):
 @public
 def process_version(v: HasGetKeyRevision) -> HasGetKeyRevision:
     """Looks at the version and adds machine_comment required for showing "View MARC" link."""
-    comments = [
-        "found a matching marc record",
-        "add publisher and source",
-    ]
-
     if v.key.startswith('/books/') and not v.get('machine_comment'):
         thing = v.get('thing') or web.ctx.site.get(v.key, v.revision)
+        comments = [
+            "found a matching marc record",
+            "add publisher and source",
+        ]
+
         if (
             thing.source_records
             and v.revision == 1
             or (v.comment and v.comment.lower() in comments)  # type: ignore [attr-defined]
         ):
             marc = thing.source_records[-1]
-            if marc.startswith('marc:'):
-                v.machine_comment = marc[len("marc:") :]  # type: ignore [attr-defined]
-            else:
-                v.machine_comment = marc  # type: ignore [attr-defined]
+            v.machine_comment = marc[len("marc:") :] if marc.startswith('marc:') else marc
     return v
 
 
@@ -558,7 +549,7 @@ class Metatag:
         return f'<{self.tag} {attrs} />'
 
     def __repr__(self):
-        return 'Metatag(%s)' % str(self)
+        return f'Metatag({str(self)})'
 
 
 @public
@@ -607,11 +598,11 @@ def set_share_links(
         view_context (object that has/can-have share_links attribute)
     """
     encoded_url = url_quote(url)
-    text = url_quote("Check this out: " + entity_decode(title))
+    text = url_quote(f"Check this out: {entity_decode(title)}")
     links = [
         {
             'text': 'Facebook',
-            'url': 'https://www.facebook.com/sharer/sharer.php?u=' + encoded_url,
+            'url': f'https://www.facebook.com/sharer/sharer.php?u={encoded_url}',
         },
         {
             'text': 'Twitter',
@@ -887,7 +878,7 @@ class HTML(str):
         str.__init__(self, web.safeunicode(html))
 
     def __repr__(self):
-        return "<html: %s>" % str.__repr__(self)
+        return f"<html: {str.__repr__(self)}>"
 
 
 _websafe = web.websafe
@@ -964,9 +955,8 @@ def _get_recent_changes():
     def is_visited(key):
         if key in visited:
             return True
-        else:
-            visited.add(key)
-            return False
+        visited.add(key)
+        return False
 
     # ignore reverts
     re_revert = web.re_compile(r"reverted to revision \d+")
@@ -1018,7 +1008,7 @@ def _get_recent_changes2():
         )
 
     def render(c):
-        t = get_template("recentchanges/" + c.kind + "/message") or get_template(
+        t = get_template(f"recentchanges/{c.kind}/message") or get_template(
             "recentchanges/default/message"
         )
         return t(c)
@@ -1103,14 +1093,13 @@ def get_donation_include() -> str:
         else:
             raise ValueError('?ymd should be 8 digits (eg 20220101)')
 
-    html = (
+    return (
         """
     <div id="donato"></div>
     <script src="%s" data-platform="ol"></script>
     """
         % script_src
     )
-    return html
 
 
 @public
@@ -1119,7 +1108,7 @@ def get_ia_host(allow_dev: bool = False) -> str:
         web_input = web.input()
         dev_host = web_input.pop("dev_host", "")  # e.g. `www-user`
         if dev_host and re.match('^[a-zA-Z0-9-.]+$', dev_host):
-            return dev_host + ".archive.org"
+            return f"{dev_host}.archive.org"
 
     return "archive.org"
 
@@ -1128,9 +1117,7 @@ def get_ia_host(allow_dev: bool = False) -> str:
 def item_image(image_path: str | None, default: str | None = None) -> str | None:
     if image_path is None:
         return default
-    if image_path.startswith('https:'):
-        return image_path
-    return "https:" + image_path
+    return image_path if image_path.startswith('https:') else f"https:{image_path}"
 
 
 @public
@@ -1160,7 +1147,7 @@ class Request:
         query = web.ctx.query or ''
         host = web.ctx.host or ''
         if url := host + readable_path + query:
-            url = "https://" + url
+            url = f"https://{url}"
             parsed_url = urlparse(url)
 
             parsed_query = parse_qs(parsed_url.query)
@@ -1183,14 +1170,13 @@ def render_once(key: str) -> bool:
     rendered = web.ctx.setdefault('render_once', {})
     if key in rendered:
         return False
-    else:
-        rendered[key] = True
-        return True
+    rendered[key] = True
+    return True
 
 
 @public
 def today():
-    return datetime.datetime.today()
+    return datetime.datetime.now()
 
 
 @public
@@ -1300,8 +1286,10 @@ def get_location_and_publisher(loc_pub: str) -> tuple[list[str], list[str]]:
                 publishers.append(publisher)
                 # Every index value between last_placed_index and the current
                 # index is a location.
-                for place in parts[last_placed_index:index]:
-                    locations.append(place.strip(STRIP_CHARS))
+                locations.extend(
+                    place.strip(STRIP_CHARS)
+                    for place in parts[last_placed_index:index]
+                )
                 locations.append(location)  # Preserve location order.
                 last_placed_index = index + 1
 
@@ -1327,9 +1315,7 @@ def get_edu_domains() -> list[str]:
 
     results = []
     with p.open() as f:
-        for line in f:
-            results.append(line.strip())
-
+        results.extend(line.strip() for line in f)
     return results
 
 

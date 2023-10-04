@@ -55,9 +55,8 @@ class SearchScheme:
             if sort.startswith('random_'):
                 # Allow custom randoms; so anything random_* is allowed
                 return sort if ' ' in sort else f'{sort} asc'
-            else:
-                solr_sort = self.sorts[sort]
-                return solr_sort() if callable(solr_sort) else solr_sort
+            solr_sort = self.sorts[sort]
+            return solr_sort() if callable(solr_sort) else solr_sort
 
         return ','.join(
             process_individual_sort(s.strip()) for s in user_sort.split(',')

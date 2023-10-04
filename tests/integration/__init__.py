@@ -36,7 +36,7 @@ class OLSession:
     def ia_login(
         self, email, password, test=None, domain="https://archive.org", **kwargs
     ):
-        self.driver.get('%s/account/login.php' % domain)
+        self.driver.get(f'{domain}/account/login.php')
         self.driver.find_element_by_id('username').send_keys(email)
         self.driver.find_element_by_id('password').send_keys(password)
         self.driver.find_element_by_name('submit').click()
@@ -47,7 +47,7 @@ class OLSession:
 
     def ia_is_logged_in(self, domain="https://archive.org"):
         time.sleep(2)
-        self.driver.get('%s/account/' % domain)
+        self.driver.get(f'{domain}/account/')
         try:
             pagecontent = self.driver.find_element_by_class_name('welcome')
         except NoSuchElementException:
@@ -55,7 +55,7 @@ class OLSession:
         return True
 
     def ia_logout(self, test=None, domain="https://archive.org"):
-        self.driver.get('%s/account/logout.php' % domain)
+        self.driver.get(f'{domain}/account/logout.php')
         if test:
             assert not self.ia_is_logged_in(), "Failed to logout of IA"
 
@@ -112,8 +112,7 @@ class OLSession:
         email = email.replace('+', '%2b')
         r = requests.get(
             self.url(
-                '/internal/account/audit?key=%s&email=%s&unlink=true'
-                % (self.config['internal_tests_api_key'], email)
+                f"/internal/account/audit?key={self.config['internal_tests_api_key']}&email={email}&unlink=true"
             )
         )
 

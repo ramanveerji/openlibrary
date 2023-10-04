@@ -205,10 +205,10 @@ class Mock:
         self.default = None
 
     def __call__(self, *a, **kw):
-        for a2, kw2, _return in self.calls:
-            if (a, kw) == (a2, kw2):
-                return _return
-        return self.default
+        return next(
+            (_return for a2, kw2, _return in self.calls if (a, kw) == (a2, kw2)),
+            self.default,
+        )
 
     def setup_call(self, *a, **kw):
         _return = kw.pop("_return", None)

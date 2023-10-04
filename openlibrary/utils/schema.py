@@ -25,10 +25,7 @@ def register_adapter(name, adapter):
 
 
 def get_adapter(name):
-    if isinstance(name, AbstractAdapter):
-        return name
-    else:
-        return _adapters[name]()
+    return name if isinstance(name, AbstractAdapter) else _adapters[name]()
 
 
 _constants = {}
@@ -46,7 +43,7 @@ class AbstractAdapter:
     def type_to_sql(self, type, limit=None):
         sql = self.get_native_type(type)
         if limit:
-            sql += '(%s)' % limit
+            sql += f'({limit})'
         return sql
 
     def get_native_type(self, type):
@@ -65,11 +62,8 @@ class AbstractAdapter:
         elif option == 'unique' and value is True:
             return 'unique'
         elif option == 'default':
-            if hasattr(value, 'sql'):
-                value = value.sql(self)
-            else:
-                value = sqlrepr(value)
-            return "default %s" % (value)
+            value = value.sql(self) if hasattr(value, 'sql') else sqlrepr(value)
+            return f"default {value}"
         elif option == 'null':
             return {True: 'null', False: 'not null'}[value]
         elif option == 'references':
@@ -87,7 +81,7 @@ class MockAdapter(AbstractAdapter):
         return type
 
     def references_to_sql(self, column_name, value):
-        return 'references ' + value
+        return f'references {value}'
 
     def quote(self, value):
         return repr(value)
@@ -144,7 +138,7 @@ class PostgresAdapter(AbstractAdapter):
     }
 
     def references_to_sql(self, column_name, value):
-        return 'references ' + value
+        return f'references {value}'
 
 
 class SQLiteAdapter(AbstractAdapter):
@@ -177,10 +171,7 @@ register_adapter('sqlite', SQLiteAdapter)
 
 
 def sqlrepr(s):
-    if isinstance(s, str):
-        return repr(s)
-    else:
-        return s
+    return repr(s) if isinstance(s, str) else s
 
 
 class Datatype:
@@ -250,8 +241,7 @@ class Table:
     def sql(self, engine):
         columns = [c.sql(engine) for c in self.columns]
         for c in self.columns:
-            for constraint in c.constraints:
-                columns.append(constraint)
+            columns.extend(iter(c.constraints))
         return "create table {} (\n    {}\n);".format(
             self.name, ",\n    ".join(columns)
         )
@@ -316,11 +306,7 @@ class Index:
 
     def __init__(self, table, columns, **options):
         self.table = table
-        if not isinstance(columns, list):
-            self.columns = [columns]
-        else:
-            self.columns = columns
-
+        self.columns = [columns] if not isinstance(columns, list) else columns
         self.unique = options.get('unique')
         self.name = options.get('name')
 
@@ -328,13 +314,9 @@ class Index:
         adapter = get_adapter(engine)
         name = self.name or adapter.index_name(self.table, self.columns)
 
-        if self.unique:
-            s = 'create unique index '
-        else:
-            s = 'create index '
-
+        s = 'create unique index ' if self.unique else 'create index '
         s += adapter.index_name(self.table, self.columns)
-        s += ' on {}({});'.format(self.table, ", ".join(self.columns))
+        s += f' on {self.table}({", ".join(self.columns)});'
         return s
 
 

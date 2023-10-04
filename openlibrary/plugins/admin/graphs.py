@@ -60,9 +60,7 @@ class Series:
 
         :return: Returns self
         """
-        self.name = "{}({}, {})".format(
-            funcname, self.name, ", ".join(repr(a) for a in args)
-        )
+        self.name = f'{funcname}({self.name}, {", ".join(repr(a) for a in args)})'
         return self
 
     def alias(self, name):

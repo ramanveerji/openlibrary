@@ -34,7 +34,7 @@ def facet_token(field, v):
     field = coerce_str(field)
 
     q = int(mkhash(f'FT,{field},{v}').hexdigest(), 16)
-    for i in range(facet_token_length):
+    for _ in range(facet_token_length):
         q, r = divmod(q, 26)
         token.append(string.lowercase[r])
     return ''.join(token)

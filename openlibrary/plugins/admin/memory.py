@@ -28,7 +28,7 @@ def mark():
 def get_counts():
     counts = get_all_counts()
 
-    d = [
+    return [
         Storage(
             type=type,
             count=count,
@@ -37,7 +37,6 @@ def get_counts():
         )
         for type, count in counts.items()
     ]
-    return d
 
 
 def get_all_counts():
@@ -74,5 +73,5 @@ def _get_type(obj):
     mod = t.__module__
     name = t.__name__
     if mod != "__builtin__":
-        name = mod + "." + name
+        name = f"{mod}.{name}"
     return name

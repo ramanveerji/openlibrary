@@ -14,7 +14,7 @@ def find_item(ia):
     s.settimeout(2.0)
     s.setsockopt(1, SO_BROADCAST, 1)
     s.sendto(ia, ('<broadcast>', 8010))
-    for attempt in range(5):
+    for _ in range(5):
         (loc, address) = s.recvfrom(1024)
         m = re_loc.match(loc)
 

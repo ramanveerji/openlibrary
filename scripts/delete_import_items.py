@@ -42,8 +42,7 @@ class DeleteImportItemJob:
         state_path = Path(state_file)
         if state_path.exists():
             with state_path.open('r') as f:
-                line = f.readline()
-                if line:
+                if line := f.readline():
                     self.start_line = int(line)
 
     def run(self):

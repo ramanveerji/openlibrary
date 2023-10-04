@@ -20,4 +20,4 @@ def test_doctest(module):
         runner = doctest.DocTestRunner(verbose=True)
         failures, tries = runner.run(test)
         if failures:
-            pytest.fail("doctest failed: " + test.name)
+            pytest.fail(f"doctest failed: {test.name}")

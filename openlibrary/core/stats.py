@@ -24,8 +24,7 @@ def create_stats_client(cfg=config):
     logger = logging.getLogger("pystatsd.client")
     logger.addHandler(logging.StreamHandler())
     try:
-        stats_server = cfg.get("admin", {}).get("statsd_server", None)
-        if stats_server:
+        if stats_server := cfg.get("admin", {}).get("statsd_server", None):
             host, port = stats_server.rsplit(":", 1)
             return StatsClient(host, port)
         else:
@@ -48,8 +47,8 @@ def increment(key, n=1, rate=1.0):
     "Increments the value of ``key`` by ``n``"
     global client
     if client:
-        pystats_logger.debug("Incrementing %s" % key)
-        for i in range(n):
+        pystats_logger.debug(f"Incrementing {key}")
+        for _ in range(n):
             try:
                 client.increment(key, sample_rate=rate)
             except AttributeError:

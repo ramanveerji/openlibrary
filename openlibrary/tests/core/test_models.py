@@ -94,7 +94,7 @@ class TestList:
         from openlibrary.mocks.mock_infobase import MockSite
 
         site = MockSite()
-        list_key = user_key + "/lists/OL1L"
+        list_key = f"{user_key}/lists/OL1L"
 
         self.save_doc(site, "/type/user", user_key)
         self.save_doc(site, "/type/list", list_key)
